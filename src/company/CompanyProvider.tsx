@@ -55,7 +55,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
       const { data: companyRows, error: companyError } = await supabase
         .from('companies')
-        .select('id,name,business_type,timezone,description,phone,city,state,onboarding_completed_at')
+        .select('id,name,business_type,timezone,description,phone,city,state,onboarding_completed_at,onboarding_step')
         .in('id', ids)
         .order('created_at', { ascending: true })
       if (companyError) throw companyError

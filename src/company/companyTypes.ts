@@ -8,6 +8,7 @@ export type Company = {
   city: string | null
   state: string | null
   onboarding_completed_at: string | null
+  onboarding_step: number
 }
 
 export type CompanySettings = {

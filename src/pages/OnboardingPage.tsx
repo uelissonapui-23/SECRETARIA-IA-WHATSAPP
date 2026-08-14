@@ -28,7 +28,11 @@ export function OnboardingPage() {
   const { user } = useAuth()
   const { currentCompany, settings, loading, refresh } = useCompany()
   const navigate = useNavigate()
-  const [step, setStep] = useState(currentCompany ? 2 : 1)
+  const [step, setStep] = useState(() => {
+    if (!currentCompany) return 1
+    const persistedStep = Number(currentCompany.onboarding_step ?? 2)
+    return Math.min(4, Math.max(2, Number.isFinite(persistedStep) ? persistedStep : 2))
+  })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [companyName, setCompanyName] = useState(currentCompany?.name ?? '')
@@ -81,12 +85,9 @@ export function OnboardingPage() {
       })
       if (updateError) throw updateError
 
-      // A persistência é o critério para avançar. Uma eventual falha de recarga
-      // do contexto não deve prender o usuário na mesma etapa após o banco salvar.
+      // O progresso também é persistido no banco. Não recarregamos o provider
+      // entre etapas para evitar desmontar o wizard durante a navegação.
       setStep(3)
-      void refresh().catch((refreshError) => {
-        console.error('Falha ao atualizar contexto após salvar rotina do onboarding', refreshError)
-      })
     } catch (err) {
       console.error('Falha ao salvar rotina do onboarding', err)
       setError(errorMessage(err))
@@ -109,7 +110,7 @@ export function OnboardingPage() {
         target_monitor_tasks: monitors.monitor_tasks,
       })
       if (updateError) throw updateError
-      await refresh(); setStep(4)
+      setStep(4)
     } catch (err) { setError(errorMessage(err)) }
     finally { setBusy(false) }
   }
