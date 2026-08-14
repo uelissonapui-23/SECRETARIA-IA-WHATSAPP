@@ -65,19 +65,32 @@ export function OnboardingPage() {
   }
 
   async function saveSchedule() {
-    if (!currentCompany) return
+    if (!currentCompany) {
+      setError('A empresa não foi carregada. Atualize a página e tente novamente.')
+      return
+    }
     setBusy(true); setError('')
     try {
-      const { error: updateError } = await supabase.rpc('onboarding_save_schedule', {
-        target_company_id: currentCompany.id,
-        target_working_days: normalizeWorkingDays(workingDays),
-        target_workday_start: workdayStart,
-        target_workday_end: workdayEnd,
+      const { error: updateError } = await supabase.rpc('onboarding_save_schedule_v2', {
+        payload: {
+          company_id: currentCompany.id,
+          working_days: normalizeWorkingDays(workingDays),
+          workday_start: workdayStart,
+          workday_end: workdayEnd,
+        },
       })
       if (updateError) throw updateError
-      await refresh(); setStep(3)
-    } catch (err) { setError(errorMessage(err)) }
-    finally { setBusy(false) }
+
+      // A persistência é o critério para avançar. Uma eventual falha de recarga
+      // do contexto não deve prender o usuário na mesma etapa após o banco salvar.
+      setStep(3)
+      void refresh().catch((refreshError) => {
+        console.error('Falha ao atualizar contexto após salvar rotina do onboarding', refreshError)
+      })
+    } catch (err) {
+      console.error('Falha ao salvar rotina do onboarding', err)
+      setError(errorMessage(err))
+    } finally { setBusy(false) }
   }
 
   async function saveMonitoring() {

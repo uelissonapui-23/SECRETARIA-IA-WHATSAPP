@@ -9,6 +9,10 @@ const authMap: Record<string, string> = {
   invalid_state: 'Informe a UF com duas letras.',
   working_days_required: 'Selecione pelo menos um dia de atendimento.',
   invalid_working_day: 'Há um dia de atendimento inválido.',
+  invalid_schedule_payload: 'Não foi possível interpretar os horários. Atualize a página e tente novamente.',
+  invalid_company_id: 'A empresa selecionada é inválida. Atualize a página e tente novamente.',
+  invalid_working_hours: 'Confira os horários de início e término.',
+  invalid_working_hours_range: 'O horário de término deve ser depois do horário de início.',
   company_not_found: 'A empresa não foi encontrada. Atualize a página e tente novamente.',
 }
 

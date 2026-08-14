@@ -152,3 +152,7 @@ Inclui revisão integral, testes de regressão, PWA final, performance, acessibi
 ## Critério de sucesso da V1
 
 O produto prova valor quando o empresário recebe um lembrete relevante que teria esquecido, consegue abrir o contexto original em segundos, confirma que a interpretação está correta e passa a confiar que a Secretária o ajuda sem exigir alimentação manual constante do sistema.
+
+## Diretriz operacional do onboarding
+
+O onboarding deve ser transacional, tolerante a falhas de atualização de contexto e nunca prender o usuário numa etapa quando a persistência no banco já foi concluída. Entradas complexas vindas da Data API devem preferir contratos RPC estáveis e explicitamente validados no PostgreSQL.
