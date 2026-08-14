@@ -23,6 +23,27 @@ O projeto será construído por módulos completos, e não por funções isolada
 
 Cada módulo passa por: analisar, planejar, implementar, revisar impactos, validar e entregar. A entrega padrão é um ZIP com arquivos nos caminhos corretos para extração na raiz do projeto. Migrations são sempre incrementais e versionadas. Nenhum módulo pode apagar ou substituir silenciosamente dados de módulos anteriores.
 
+Após cada módulo, a entrega deve incluir todos os comandos necessários para instalar dependências, aplicar migrations, configurar permissões, validar banco e RLS, executar typecheck/lint/test/build, publicar no GitHub, executar automações do Supabase e publicar/testar na Vercel. Comandos pendentes de módulos anteriores também devem ser incluídos.
+
+## Regras obrigatórias de interface e experiência
+
+1. O sistema deve ter aparência profissional, bonita, limpa, coerente e organizada em todas as páginas.
+2. A prioridade de produto é, nesta ordem: funcionalidade correta, praticidade, intuitividade e qualidade visual. Aparência nunca pode esconder, complicar ou prejudicar uma função.
+3. Toda página deve ser responsiva e utilizável em celular, tablet, notebook e computador, sem depender de uma resolução específica.
+4. Nenhuma informação essencial pode sair da tela, ser cortada, ficar escondida por menus, barras, botões, cards ou elementos fixos.
+5. Layouts devem evitar overflow horizontal acidental. Quando o conteúdo realmente exigir largura, a solução responsiva deve ser intencional e utilizável.
+6. Cards, listas, formulários, modais, tabelas e painéis devem se reorganizar conforme a largura disponível, preservando leitura e ações.
+7. Textos longos, nomes de clientes, empresas, serviços, endereços e conteúdo gerado pela IA devem quebrar linha ou truncar de forma controlada, sempre com forma de acessar a informação completa quando necessário.
+8. Botões e ações principais devem permanecer claros e acessíveis em telas pequenas, sem sobreposição ou áreas de toque inadequadas.
+9. Estados de carregamento, vazio, erro, sucesso, conexão, desconexão e falta de permissão devem fazer parte da página definitiva de cada módulo.
+10. Cada página deve ser entregue como página definitiva do módulo, prevendo estados normais e extremos de conteúdo, não apenas o cenário ideal de demonstração.
+11. A navegação deve usar linguagem simples para pequenos empresários e minimizar etapas, campos e decisões desnecessárias.
+12. Antes de fechar cada módulo, a validação visual deve cobrir pelo menos larguras representativas de celular, tablet e desktop, além de conteúdo longo e listas vazias/cheias.
+
+## Regra de banco e Data API
+
+O projeto mantém `Automatically expose new tables` desativado no Supabase. Portanto, toda migration que crie uma tabela, view, função ou sequência acessada pelo cliente deve declarar explicitamente os privilégios SQL necessários para os papéis `authenticated` e, somente quando houver motivo real, `anon`. RLS continua obrigatória e é a camada de autorização por linha. Nenhuma funcionalidade deve depender de privilégios implícitos do dashboard do Supabase.
+
 ## Arquitetura
 
 - Frontend: React + TypeScript + Vite
