@@ -1,0 +1,1 @@
+export function WorkPage() { return <div className="empty-page"><span className="eyebrow">V1</span><h1>Trabalho</h1><p>Pedidos, serviços, tarefas, orçamentos em acompanhamento e pagamentos prometidos ficarão reunidos aqui.</p></div> }

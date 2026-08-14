@@ -1,0 +1,1 @@
+export function ClientsPage() { return <div className="empty-page"><span className="eyebrow">V1</span><h1>Clientes</h1><p>Histórico operacional enxuto, pendências e eventos relevantes, sem transformar o produto em um CRM pesado.</p></div> }

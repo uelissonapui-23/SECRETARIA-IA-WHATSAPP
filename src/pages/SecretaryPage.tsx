@@ -1,0 +1,1 @@
+export function SecretaryPage() { return <div className="empty-page"><span className="eyebrow">V1</span><h1>Secretária</h1><p>A consulta em linguagem natural entrará depois que o motor de eventos e a memória estruturada estiverem estáveis.</p></div> }
