@@ -19,12 +19,13 @@ function mockDetect(text: string): Detected | null {
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
   const secret = Deno.env.get('WORKER_SECRET') ?? ''
-  if (secret && req.headers.get('x-worker-secret') !== secret) return new Response('Unauthorized', { status: 401 })
+  if (!secret) return new Response('Worker not configured', { status: 503 })
+  if (req.headers.get('x-worker-secret') !== secret) return new Response('Unauthorized', { status: 401 })
 
   const { message_id } = await req.json()
   if (!message_id) return new Response(JSON.stringify({ error: 'message_id required' }), { status: 400, headers: { 'content-type': 'application/json' } })
 
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SECRET_KEY')!)
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEY')!)
   const { data: message, error } = await supabase.from('messages').select('*').eq('id', message_id).single()
   if (error || !message) return new Response(JSON.stringify({ error: 'message not found' }), { status: 404, headers: { 'content-type': 'application/json' } })
   if (!message.eligible_for_ai || !message.body_text) return new Response(JSON.stringify({ skipped: true }), { headers: { 'content-type': 'application/json' } })

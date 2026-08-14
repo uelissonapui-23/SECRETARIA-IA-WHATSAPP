@@ -7,6 +7,7 @@ import { WorkPage } from './pages/WorkPage'
 import { ClientsPage } from './pages/ClientsPage'
 import { SecretaryPage } from './pages/SecretaryPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { WhatsAppPage } from './pages/WhatsAppPage'
 import { SetupPage } from './pages/SetupPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { AuthLayout } from './pages/auth/AuthLayout'
@@ -37,6 +38,7 @@ export function App() {
         <Route path="trabalho" element={<WorkPage />} />
         <Route path="clientes" element={<ClientsPage />} />
         <Route path="secretaria" element={<SecretaryPage />} />
+        <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="configuracoes" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

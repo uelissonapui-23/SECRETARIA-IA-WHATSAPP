@@ -64,16 +64,18 @@ Status: concluído.
 Inclui PWA, estrutura React/Vite/TypeScript, Supabase, banco multiempresa, RLS inicial, pipeline de webhook/job, estrutura de mensagens e sugestões, CI e deploy.
 
 ### Módulo 2 - Conta, empresa e onboarding
-Status: em fechamento e validação publicada.
+Status: concluído e validado no ambiente publicado.
 
 Inclui cadastro, login, confirmação de e-mail, recuperação e redefinição de senha, persistência de sessão, proteção de rotas, perfil, criação da primeira empresa, vínculo owner, preferências, horário de atendimento, seleção do que a Secretária deve observar, conclusão retomável do onboarding, configurações editáveis, logout e reforço das políticas de membros.
 
 A arquitetura aceita múltiplas empresas por usuário sem refazer autenticação ou banco. A interface de troca de empresa poderá ser exposta quando o módulo de equipe/multiempresa exigir.
 
 ### Módulo 3 - WhatsApp oficial e conexão empresarial
-Próximo.
+Status: implementação completa entregue; depende apenas da configuração externa da Meta e do teste real de conexão.
 
-Será entregue completo para o escopo do projeto: configuração de integração Meta, Embedded Signup quando aplicável, estados da conexão, callback seguro, credenciais somente backend, webhook verificado, assinatura/validação, vínculo WABA/número à empresa, ativação temporal do monitoramento, reconexão, desconexão, tratamento de falhas, painel de status e prova real de recebimento de novas mensagens de texto.
+Inclui página definitiva de conexão, Embedded Signup oficial com suporte ao onboarding do WhatsApp Business App, callback seguro, troca de código somente no backend, vínculo WABA/número à empresa, token de acesso armazenado criptografado no Supabase Vault, privilégios explícitos, estados de conexão, ativação temporal T0, reconexão pelo mesmo fluxo, desconexão local segura, auditoria, webhook com verificação de assinatura HMAC, deduplicação por `provider_message_id`, bloqueio de histórico anterior ao T0, aceitação de texto e rejeição de áudio/mídia para IA, status do último webhook e navegação completa em celular.
+
+A configuração externa obrigatória da Meta é tratada como infraestrutura do módulo: App ID, Configuration ID, App Secret, Verify Token, versão da Graph API e assinatura do webhook. A interface deve informar claramente quando essa infraestrutura ainda não estiver configurada.
 
 ### Módulo 4 - Motor IA e contexto verificável
 
@@ -140,6 +142,17 @@ Inclui revisão integral, testes de regressão, PWA final, performance, acessibi
 3. Login/cadastro continuarão conectados à mesma identidade do aplicativo, evitando contas duplicadas.
 4. A área pública deverá ser responsiva, rápida, acessível e preparada para SEO/compartilhamento.
 5. Planos e checkout serão conectados somente quando o módulo comercial estiver implementado; não haverá botões falsos ou fluxos incompletos.
+
+## Regras permanentes da integração WhatsApp
+
+1. A integração usa exclusivamente a plataforma oficial da Meta. Não usar automação de WhatsApp Web, scraping, QR Code não oficial ou bibliotecas que simulem o cliente.
+2. O momento `activation_at` é a fronteira temporal oficial. Mensagens anteriores a esse instante não podem entrar no pipeline automático.
+3. A V1 armazena e processa somente novas mensagens recebidas após a ativação. Mensagens não textuais podem ser registradas como evento técnico, mas `eligible_for_ai` permanece falso.
+4. Tokens da Meta nunca são retornados ao navegador nem gravados em tabelas expostas ao usuário; ficam protegidos no Vault.
+5. A conexão e desconexão exigem usuário autenticado com papel `owner` ou `admin` na empresa e geram auditoria.
+6. O webhook deve verificar `X-Hub-Signature-256`, tratar duplicidade e responder rapidamente sem executar IA pesada na mesma requisição.
+7. O frontend deve mostrar número conectado, momento de ativação, último evento recebido, estado de erro e ações de reconexão/desconexão sem revelar IDs ou credenciais desnecessárias ao usuário final.
+8. A navegação mobile precisa manter acesso a WhatsApp, Secretária e Configurações sem aumentar a barra inferior além do que cabe na tela.
 
 ## Backlog posterior à V1
 
