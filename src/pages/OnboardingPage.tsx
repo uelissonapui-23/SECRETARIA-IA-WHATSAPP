@@ -49,12 +49,16 @@ export function OnboardingPage() {
     event.preventDefault(); if (!user) return
     setBusy(true); setError('')
     try {
-      const { error: insertError } = await supabase.from('companies').insert({
-        name: companyName.trim(), business_type: businessType.trim() || null, phone: phone.trim() || null,
-        city: city.trim() || null, state: state.trim().toUpperCase() || null, created_by: user.id,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Manaus',
+      const { error: saveError } = await supabase.rpc('onboarding_save_company', {
+        target_company_id: currentCompany?.id ?? null,
+        company_name: companyName.trim(),
+        company_business_type: businessType.trim(),
+        company_phone: phone.trim(),
+        company_city: city.trim(),
+        company_state: state.trim().toUpperCase(),
+        company_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Manaus',
       })
-      if (insertError) throw insertError
+      if (saveError) throw saveError
       await refresh(); setStep(2)
     } catch (err) { setError(errorMessage(err)) }
     finally { setBusy(false) }
@@ -64,9 +68,12 @@ export function OnboardingPage() {
     if (!currentCompany) return
     setBusy(true); setError('')
     try {
-      const { error: updateError } = await supabase.from('company_settings').update({
-        working_days: normalizeWorkingDays(workingDays), workday_start: workdayStart, workday_end: workdayEnd,
-      }).eq('company_id', currentCompany.id)
+      const { error: updateError } = await supabase.rpc('onboarding_save_schedule', {
+        target_company_id: currentCompany.id,
+        target_working_days: normalizeWorkingDays(workingDays),
+        target_workday_start: workdayStart,
+        target_workday_end: workdayEnd,
+      })
       if (updateError) throw updateError
       await refresh(); setStep(3)
     } catch (err) { setError(errorMessage(err)) }
@@ -77,7 +84,17 @@ export function OnboardingPage() {
     if (!currentCompany) return
     setBusy(true); setError('')
     try {
-      const { error: updateError } = await supabase.from('company_settings').update(monitors).eq('company_id', currentCompany.id)
+      const { error: updateError } = await supabase.rpc('onboarding_save_monitors', {
+        target_company_id: currentCompany.id,
+        target_monitor_appointments: monitors.monitor_appointments,
+        target_monitor_orders: monitors.monitor_orders,
+        target_monitor_quotes: monitors.monitor_quotes,
+        target_monitor_payment_promises: monitors.monitor_payment_promises,
+        target_monitor_follow_ups: monitors.monitor_follow_ups,
+        target_monitor_awaiting_reply: monitors.monitor_awaiting_reply,
+        target_monitor_deadlines: monitors.monitor_deadlines,
+        target_monitor_tasks: monitors.monitor_tasks,
+      })
       if (updateError) throw updateError
       await refresh(); setStep(4)
     } catch (err) { setError(errorMessage(err)) }
@@ -88,7 +105,7 @@ export function OnboardingPage() {
     if (!currentCompany) return
     setBusy(true); setError('')
     try {
-      const { error: companyError } = await supabase.from('companies').update({ onboarding_completed_at: new Date().toISOString() }).eq('id', currentCompany.id)
+      const { error: companyError } = await supabase.rpc('onboarding_complete', { target_company_id: currentCompany.id })
       if (companyError) throw companyError
       await refresh(); navigate('/', { replace: true })
     } catch (err) { setError(errorMessage(err)) }

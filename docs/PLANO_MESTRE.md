@@ -64,7 +64,7 @@ Status: concluído.
 Inclui PWA, estrutura React/Vite/TypeScript, Supabase, banco multiempresa, RLS inicial, pipeline de webhook/job, estrutura de mensagens e sugestões, CI e deploy.
 
 ### Módulo 2 - Conta, empresa e onboarding
-Status: concluído nesta entrega.
+Status: em fechamento e validação publicada.
 
 Inclui cadastro, login, confirmação de e-mail, recuperação e redefinição de senha, persistência de sessão, proteção de rotas, perfil, criação da primeira empresa, vínculo owner, preferências, horário de atendimento, seleção do que a Secretária deve observar, conclusão retomável do onboarding, configurações editáveis, logout e reforço das políticas de membros.
 
@@ -99,17 +99,47 @@ Inclui memória estruturada da empresa e do cliente, preferências aprendidas co
 
 Inclui convites, owner/admin/member, permissões, responsáveis por tarefas/agendamentos, troca de empresa, auditoria e isolamento completo.
 
-### Módulo 10 - Administração, custos e saúde
+### Módulo 10 - Administração Master, custos e saúde
 
-Inclui painel operacional interno, métricas por empresa, erros de webhook/IA, custo estimado, jobs, auditoria, retenção, diagnósticos e ferramentas seguras de suporte.
+Inclui uma área administrativa exclusiva da plataforma, separada das áreas das empresas. Terá usuário Master e papéis administrativos próprios, visão de usuários e empresas, status de contas, planos e assinaturas, consumo, custos de IA, conexão WhatsApp, jobs, falhas, auditoria, retenção, diagnósticos, ferramentas de suporte e ações administrativas controladas.
 
-### Módulo 11 - Comercialização
+A autorização da plataforma é independente de `company_members`. Ser owner/admin de uma empresa nunca concede acesso Master. Nenhum usuário do frontend pode promover a própria conta. A base permanente utiliza `platform_admins`, controles administrativos e auditoria sem acesso direto pelas tabelas públicas do navegador. Ações sensíveis serão executadas no backend, exigirão revalidação de papel e gerarão registro de auditoria.
 
-Inclui planos, limites, teste, cobrança, estados de assinatura, bloqueios graduais, política de uso, LGPD operacional, termos e fluxo de cancelamento/exclusão.
+A área Master deverá evitar exposição desnecessária do conteúdo das conversas. Ferramentas de suporte que futuramente precisem consultar conteúdo sensível deverão ser restritas, justificáveis e auditadas.
 
-### Módulo 12 - Fechamento e piloto
+### Módulo 11 - Apresentação pública e conversão
+
+Inclui área pública profissional do produto, acessível sem login, com apresentação clara da Secretária IA, demonstração do funcionamento, benefícios, recursos, segurança/privacidade, perguntas frequentes, planos quando disponíveis e chamadas para criar conta, iniciar teste ou contratar. A jornada pública deve conduzir o interessado da descoberta até cadastro/compra sem misturar a área comercial com o aplicativo autenticado.
+
+A arquitetura de rotas deverá reservar uma área pública independente da aplicação interna, permitindo SEO, compartilhamento e evolução comercial sem alterar as páginas operacionais. Não serão criadas páginas provisórias: este módulo será entregue completo quando chegar sua fase.
+
+### Módulo 12 - Comercialização e assinaturas
+
+Inclui planos, limites, período de teste, checkout, cobrança, assinatura, estados de pagamento, upgrade/downgrade, bloqueios graduais, reativação, política de uso, LGPD operacional, termos e fluxo de cancelamento/exclusão. Integra-se à apresentação pública e ao painel Master, mas mantém cobrança isolada da lógica operacional da empresa.
+
+### Módulo 13 - Fechamento e piloto
 
 Inclui revisão integral, testes de regressão, PWA final, performance, acessibilidade essencial, segurança, recuperação de falhas, documentação, piloto interno, piloto 3 empresas e piloto 10 empresas.
+
+
+## Regras permanentes de administração da plataforma
+
+1. O sistema terá uma camada de administração da plataforma separada das permissões de cada empresa.
+2. Papéis administrativos previstos: `master`, `support`, `billing` e `viewer`, com princípio de menor privilégio.
+3. O papel `master` não poderá ser obtido por cadastro, convite de empresa, alteração de perfil ou requisição do frontend.
+4. Tabelas administrativas não serão expostas diretamente ao usuário comum pela Data API.
+5. Toda ação sensível do painel Master deverá ser autorizada no backend e auditada.
+6. Suspensão/bloqueio de usuário deverá preservar dados e rastreabilidade; exclusão definitiva seguirá fluxo próprio e requisitos de LGPD.
+7. O painel Master deverá permitir gestão operacional sem quebrar o isolamento entre empresas.
+8. Métricas administrativas podem agregar dados entre empresas, mas o acesso ao conteúdo privado será minimizado e controlado separadamente.
+
+## Regras permanentes da área pública
+
+1. A apresentação comercial será pública e independente da área autenticada.
+2. O visitante deverá compreender o produto rapidamente, ver como funciona e encontrar um caminho claro para cadastro, teste e futura compra.
+3. Login/cadastro continuarão conectados à mesma identidade do aplicativo, evitando contas duplicadas.
+4. A área pública deverá ser responsiva, rápida, acessível e preparada para SEO/compartilhamento.
+5. Planos e checkout serão conectados somente quando o módulo comercial estiver implementado; não haverá botões falsos ou fluxos incompletos.
 
 ## Backlog posterior à V1
 
