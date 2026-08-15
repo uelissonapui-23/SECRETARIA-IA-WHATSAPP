@@ -18,7 +18,7 @@ export type MetaSignupMessage = {
 }
 
 export type MetaSignupDiagnostic = {
-  stage: 'sdk-ready' | 'message' | 'login-callback' | 'authorization-without-session' | 'complete'
+  stage: 'sdk-ready' | 'login-start' | 'message' | 'login-callback' | 'authorization-without-session' | 'complete'
   origin?: string
   type?: string
   event?: string
@@ -27,6 +27,9 @@ export type MetaSignupDiagnostic = {
   hasPhoneNumberId?: boolean
   hasBusinessId?: boolean
   hasAuthorizationCode?: boolean
+  loginStatus?: string
+  trustedOrigin?: boolean
+  topLevelKeys?: string[]
 }
 
 function stringValue(value: unknown) {
@@ -146,10 +149,11 @@ export function parseMetaSignupMessage(event: Pick<MessageEvent, 'origin' | 'dat
   }
 }
 
-export function inspectMetaSignupEvent(event: Pick<MessageEvent, 'origin' | 'data'>): MetaSignupDiagnostic | null {
-  if (!isTrustedMetaOrigin(event.origin)) return null
+export function inspectMetaSignupEvent(event: Pick<MessageEvent, 'origin' | 'data'>): MetaSignupDiagnostic {
+  const trustedOrigin = isTrustedMetaOrigin(event.origin)
   const { record: rawRecord, payloadKind } = payloadObject(event.data)
-  if (!rawRecord) return { stage: 'message', origin: event.origin, payloadKind }
+  if (!rawRecord) return { stage: 'message', origin: event.origin, payloadKind, trustedOrigin }
+  if (!trustedOrigin) return { stage: 'message', origin: event.origin, payloadKind, trustedOrigin, topLevelKeys: Object.keys(rawRecord).slice(0, 12) }
   const record = unwrapSignupRecord(rawRecord)
   const parsed = parseMetaSignupMessage(event)
 
@@ -157,6 +161,8 @@ export function inspectMetaSignupEvent(event: Pick<MessageEvent, 'origin' | 'dat
     stage: 'message',
     origin: event.origin,
     payloadKind,
+    trustedOrigin,
+    topLevelKeys: Object.keys(record).slice(0, 12),
     type: firstString(record.type),
     event: firstString(record.event)?.toUpperCase(),
     hasWabaId: Boolean(parsed?.data.waba_id),
@@ -303,12 +309,14 @@ export async function startWhatsAppEmbeddedSignup(
   }, 90_000)
 
   onStatus('Abrindo autorização segura da Meta...')
+  onDiagnostic?.({ stage: 'login-start' })
 
   window.FB!.login((response) => {
     authCode = response.authResponse?.code ?? ''
     onDiagnostic?.({
       stage: 'login-callback',
       hasAuthorizationCode: Boolean(authCode),
+      loginStatus: response.status,
       hasWabaId: Boolean(signupData?.waba_id),
       hasPhoneNumberId: Boolean(signupData?.phone_number_id),
     })

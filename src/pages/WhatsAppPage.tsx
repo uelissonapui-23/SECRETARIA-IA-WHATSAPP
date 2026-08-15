@@ -32,7 +32,7 @@ export function WhatsAppPage() {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
-  const [metaDiagnostic, setMetaDiagnostic] = useState<MetaSignupDiagnostic | null>(null)
+  const [metaDiagnostics, setMetaDiagnostics] = useState<MetaSignupDiagnostic[]>([])
 
   const canManage = currentMembership?.role === 'owner' || currentMembership?.role === 'admin'
   const connected = connection?.status === 'connected'
@@ -59,7 +59,7 @@ export function WhatsAppPage() {
 
   async function connect() {
     if (!currentCompany || !canManage) return
-    setError(''); setNotice(''); setMetaDiagnostic(null); setBusy(true)
+    setError(''); setNotice(''); setMetaDiagnostics([]); setBusy(true)
     try {
       await startWhatsAppEmbeddedSignup(async (code, meta) => {
         try {
@@ -73,7 +73,7 @@ export function WhatsAppPage() {
           await Promise.all([load(), refresh()])
         } catch (err) { setError(errorMessage(err)) }
         finally { setBusy(false) }
-      }, (message) => { setNotice(message); if (/cancelada|erro|não retornou|não concluiu|incomplet|não informou|não enviou|tempo esperado|tente novamente/i.test(message)) setBusy(false) }, (diagnostic) => setMetaDiagnostic(diagnostic))
+      }, (message) => { setNotice(message); if (/cancelada|erro|não retornou|não concluiu|incomplet|não informou|não enviou|tempo esperado|tente novamente/i.test(message)) setBusy(false) }, (diagnostic) => setMetaDiagnostics((current) => [...current.slice(-11), diagnostic]))
     } catch (err) { setError(errorMessage(err)); setBusy(false) }
   }
 
@@ -108,7 +108,7 @@ export function WhatsAppPage() {
           {canManage ? <button className="primary-button connect-button" type="button" onClick={connect} disabled={busy || !metaSignupConfigured()}><Link2 size={17}/>{busy?'Aguardando Meta...':'Conectar WhatsApp'}</button> : <div className="permission-note">Somente proprietário ou administrador da empresa pode alterar a conexão.</div>}
         </>}
         {notice && <div className="form-success whatsapp-message">{notice}</div>}
-        {metaDiagnostic && <div className="integration-warning whatsapp-message"><CircleAlert size={18}/><div><strong>Diagnóstico Meta</strong><span>Etapa: {metaDiagnostic.stage}{metaDiagnostic.event ? ` · Evento: ${metaDiagnostic.event}` : ''}{metaDiagnostic.type ? ` · Tipo: ${metaDiagnostic.type}` : ''} · código: {metaDiagnostic.hasAuthorizationCode ? 'sim' : 'não/informado'} · WABA: {metaDiagnostic.hasWabaId ? 'sim' : 'não'} · número: {metaDiagnostic.hasPhoneNumberId ? 'sim' : 'não'}</span></div></div>}
+        {metaDiagnostics.length > 0 && <div className="integration-warning whatsapp-message"><CircleAlert size={18}/><div><strong>Diagnóstico Meta (temporário)</strong><span style={{display:'block', marginBottom:6}}>Copie ou tire uma foto destas linhas depois de tentar conectar. Nenhum token ou ID completo é exibido.</span>{metaDiagnostics.map((item, index) => <span key={`${item.stage}-${index}`} style={{display:'block', fontFamily:'monospace', fontSize:12, overflowWrap:'anywhere'}}>#{index + 1} {item.stage}{item.loginStatus ? ` · login=${item.loginStatus}` : ''}{item.origin ? ` · origem=${item.origin}` : ''}{item.trustedOrigin === false ? ' · origem-não-confiável' : ''}{item.payloadKind ? ` · payload=${item.payloadKind}` : ''}{item.type ? ` · tipo=${item.type}` : ''}{item.event ? ` · evento=${item.event}` : ''}{item.topLevelKeys?.length ? ` · chaves=${item.topLevelKeys.join(',')}` : ''}{item.hasAuthorizationCode !== undefined ? ` · code=${item.hasAuthorizationCode ? 'sim' : 'não'}` : ''}{item.hasWabaId !== undefined ? ` · WABA=${item.hasWabaId ? 'sim' : 'não'}` : ''}{item.hasPhoneNumberId !== undefined ? ` · número=${item.hasPhoneNumberId ? 'sim' : 'não'}` : ''}</span>)}</div></div>}
         {error && <div className="form-error whatsapp-message">{error}</div>}
       </div>
 
