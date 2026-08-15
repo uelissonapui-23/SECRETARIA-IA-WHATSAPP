@@ -25,6 +25,14 @@ export type MetaSignupMessage = {
   data: MetaSignupData
 }
 
+export type MetaSignupDebug = {
+  origin: string
+  type?: string
+  event?: string
+  hasWabaId: boolean
+  hasPhoneNumberId: boolean
+}
+
 function stringValue(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
@@ -149,6 +157,7 @@ export function loadMetaSdk() {
 export async function startWhatsAppEmbeddedSignup(
   onComplete: (code: string, data: MetaSignupData) => void,
   onStatus: (message: string) => void,
+  onDebug?: (debug: MetaSignupDebug) => void,
 ) {
   if (!metaSignupConfigured()) throw new Error('A integração Meta ainda não foi configurada para este ambiente.')
   await loadMetaSdk()
@@ -173,10 +182,33 @@ export async function startWhatsAppEmbeddedSignup(
   }
 
   const messageListener = (event: MessageEvent) => {
+    // Registra somente metadados não sensíveis de mensagens vindas dos
+    // domínios oficiais da Meta. Isso permite diagnosticar mudanças no
+    // Embedded Signup sem expor code, token ou o payload bruto.
+    if (META_MESSAGE_ORIGINS.has(event.origin)) {
+      let raw: unknown = event.data
+      if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw) } catch { raw = null }
+      }
+      if (raw && typeof raw === 'object') {
+        const record = raw as Record<string, unknown>
+        const rawData = record.data && typeof record.data === 'object' ? record.data as Record<string, unknown> : {}
+        onDebug?.({
+          origin: event.origin,
+          type: stringValue(record.type),
+          event: stringValue(record.event),
+          hasWabaId: Boolean(firstString(rawData.waba_id, rawData.wabaId, record.waba_id)),
+          hasPhoneNumberId: Boolean(firstString(rawData.phone_number_id, rawData.phoneNumberId, record.phone_number_id)),
+        })
+      }
+    }
+
     const message = parseMetaSignupMessage(event)
     if (!message) return
 
-    if (message.event === 'FINISH') {
+    const eventName = message.event.toUpperCase()
+
+    if (eventName === 'FINISH') {
       sessionFinished = true
       if (!message.data.waba_id) {
         cleanup()
@@ -191,7 +223,7 @@ export async function startWhatsAppEmbeddedSignup(
       return
     }
 
-    if (message.event === 'FINISH_ONLY_WABA') {
+    if (eventName === 'FINISH_ONLY_WABA') {
       sessionFinished = true
       if (!message.data.waba_id) {
         cleanup()
@@ -206,13 +238,13 @@ export async function startWhatsAppEmbeddedSignup(
       return
     }
 
-    if (message.event === 'CANCEL') {
+    if (eventName === 'CANCEL') {
       cleanup()
       onStatus('Conexão cancelada antes da conclusão.')
       return
     }
 
-    if (message.event === 'ERROR') {
+    if (eventName === 'ERROR') {
       cleanup()
       onStatus('A Meta informou um erro durante a conexão. Tente novamente.')
     }

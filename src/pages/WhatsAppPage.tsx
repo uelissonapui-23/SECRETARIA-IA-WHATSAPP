@@ -32,6 +32,7 @@ export function WhatsAppPage() {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const [metaDebug, setMetaDebug] = useState('')
 
   const canManage = currentMembership?.role === 'owner' || currentMembership?.role === 'admin'
   const connected = connection?.status === 'connected'
@@ -58,7 +59,7 @@ export function WhatsAppPage() {
 
   async function connect() {
     if (!currentCompany || !canManage) return
-    setError(''); setNotice(''); setBusy(true)
+    setError(''); setNotice(''); setMetaDebug(''); setBusy(true)
     try {
       await startWhatsAppEmbeddedSignup(async (code, meta) => {
         try {
@@ -72,7 +73,14 @@ export function WhatsAppPage() {
           await Promise.all([load(), refresh()])
         } catch (err) { setError(errorMessage(err)) }
         finally { setBusy(false) }
-      }, (message) => { setNotice(message); if (/cancelada|erro|não retornou|não concluiu|incomplet|não informou|tente novamente/i.test(message)) setBusy(false) })
+      }, (message) => {
+        setNotice(message)
+        if (/cancelada|erro|não retornou|não concluiu|incomplet|não informou|tente novamente/i.test(message)) setBusy(false)
+      }, (debug) => {
+        const type = debug.type ?? 'sem tipo'
+        const event = debug.event ?? 'sem evento'
+        setMetaDebug(`Meta: ${type} / ${event} · WABA: ${debug.hasWabaId ? 'sim' : 'não'} · número: ${debug.hasPhoneNumberId ? 'sim' : 'não'}`)
+      })
     } catch (err) { setError(errorMessage(err)); setBusy(false) }
   }
 
@@ -107,6 +115,7 @@ export function WhatsAppPage() {
           {canManage ? <button className="primary-button connect-button" type="button" onClick={connect} disabled={busy || !metaSignupConfigured()}><Link2 size={17}/>{busy?'Aguardando Meta...':'Conectar WhatsApp'}</button> : <div className="permission-note">Somente proprietário ou administrador da empresa pode alterar a conexão.</div>}
         </>}
         {notice && <div className="form-success whatsapp-message">{notice}</div>}
+        {metaDebug && <div className="permission-note whatsapp-message"><strong>Diagnóstico Meta:</strong> {metaDebug}</div>}
         {error && <div className="form-error whatsapp-message">{error}</div>}
       </div>
 
