@@ -55,14 +55,52 @@ function isTrustedMetaOrigin(origin: string) {
 
 function payloadObject(value: unknown): { record: Record<string, unknown> | null; payloadKind: MetaSignupDiagnostic['payloadKind'] } {
   if (typeof value === 'string') {
+    const candidates = [value]
+
+    // O WA_EMBEDDED_SIGNUP oficial chega como JSON string. Alguns navegadores/
+    // camadas intermediárias podem entregar a mesma string percent-encoded.
     try {
-      const parsed = JSON.parse(value)
-      return parsed && typeof parsed === 'object'
-        ? { record: parsed as Record<string, unknown>, payloadKind: 'json-string' }
-        : { record: null, payloadKind: 'string' }
+      const decoded = decodeURIComponent(value)
+      if (decoded !== value) candidates.push(decoded)
     } catch {
-      return { record: null, payloadKind: 'string' }
+      // String não percent-encoded: segue com o valor original.
     }
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate)
+        if (parsed && typeof parsed === 'object') {
+          return { record: parsed as Record<string, unknown>, payloadKind: 'json-string' }
+        }
+      } catch {
+        // Tenta o próximo formato abaixo.
+      }
+    }
+
+    // Fallback defensivo para mensagens serializadas como query string.
+    // Só convertemos quando há chaves reconhecíveis do Embedded Signup.
+    for (const candidate of candidates) {
+      try {
+        const params = new URLSearchParams(candidate.startsWith('?') ? candidate.slice(1) : candidate)
+        const type = params.get('type')
+        const event = params.get('event')
+        if (type === 'WA_EMBEDDED_SIGNUP' || event) {
+          const dataValue = params.get('data')
+          let data: unknown = {}
+          if (dataValue) {
+            try { data = JSON.parse(dataValue) } catch { data = {} }
+          }
+          return {
+            record: { type: type ?? 'WA_EMBEDDED_SIGNUP', event: event ?? '', data },
+            payloadKind: 'string',
+          }
+        }
+      } catch {
+        // Mensagem interna do SDK sem formato de Embedded Signup.
+      }
+    }
+
+    return { record: null, payloadKind: 'string' }
   }
   if (value && typeof value === 'object') return { record: value as Record<string, unknown>, payloadKind: 'object' }
   return { record: null, payloadKind: 'other' }
@@ -347,8 +385,9 @@ export async function startWhatsAppEmbeddedSignup(
     config_id: env.metaConfigId,
     response_type: 'code',
     override_default_response_type: true,
-    // Configuração exibida pelo próprio Embedded Signup Builder da Meta para
-    // este projeto: versão v4 e session info v3.
-    extras: { version: 'v4', sessionInfoVersion: '3' },
+    // Embedded Signup v4 atual: a versão é determinada pela configuração
+    // criada no painel da Meta. Para v4, não enviamos sessionInfoVersion/version
+    // manualmente em extras; isso evita iniciar apenas o OAuth sem a sessão WA.
+    extras: {},
   })
 }

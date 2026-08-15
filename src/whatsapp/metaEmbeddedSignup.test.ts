@@ -62,6 +62,29 @@ describe('parseMetaSignupMessage', () => {
     expect(result?.data.waba_id).toBe('waba-5')
   })
 
+
+  it('aceita payload JSON percent-encoded', () => {
+    const payload = encodeURIComponent(JSON.stringify({
+      type: 'WA_EMBEDDED_SIGNUP',
+      event: 'FINISH',
+      data: { waba_id: 'waba-encoded', phone_number_id: 'phone-encoded' },
+    }))
+    const result = parseMetaSignupMessage({ origin: 'https://www.facebook.com', data: payload })
+    expect(result?.data.waba_id).toBe('waba-encoded')
+    expect(result?.data.phone_number_id).toBe('phone-encoded')
+  })
+
+  it('aceita fallback em query string somente para chaves do Embedded Signup', () => {
+    const data = encodeURIComponent(JSON.stringify({ waba_id: 'waba-query', phone_number_id: 'phone-query' }))
+    const result = parseMetaSignupMessage({
+      origin: 'https://www.facebook.com',
+      data: `type=WA_EMBEDDED_SIGNUP&event=FINISH&data=${data}`,
+    })
+    expect(result?.event).toBe('FINISH')
+    expect(result?.data.waba_id).toBe('waba-query')
+    expect(result?.data.phone_number_id).toBe('phone-query')
+  })
+
   it('gera diagnóstico sanitizado sem expor payload', () => {
     const diagnostic = inspectMetaSignupEvent({
       origin: 'https://www.facebook.com',
