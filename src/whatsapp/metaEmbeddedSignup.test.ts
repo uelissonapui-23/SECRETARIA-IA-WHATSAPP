@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseMetaSignupMessage } from './metaEmbeddedSignup'
+import { inspectMetaSignupEvent, parseMetaSignupMessage } from './metaEmbeddedSignup'
 
 describe('parseMetaSignupMessage', () => {
   it('aceita o payload JSON padrão vindo de www.facebook.com', () => {
@@ -19,7 +19,7 @@ describe('parseMetaSignupMessage', () => {
     })
   })
 
-  it('aceita postMessage originado em business.facebook.com', () => {
+  it('aceita qualquer subdomínio HTTPS legítimo de facebook.com', () => {
     const result = parseMetaSignupMessage({
       origin: 'https://business.facebook.com',
       data: { type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH', data: { waba_id: 'waba-2', phone_number_id: 'phone-2' } },
@@ -39,18 +39,44 @@ describe('parseMetaSignupMessage', () => {
     expect(result?.data).toEqual({ waba_id: 'waba-3', phone_number_id: undefined, business_id: undefined })
   })
 
-  it('normaliza identificadores aninhados', () => {
+  it('normaliza identificadores aninhados em session_info', () => {
     const result = parseMetaSignupMessage({
       origin: 'https://www.facebook.com',
       data: {
         type: 'WA_EMBEDDED_SIGNUP',
-        event: 'FINISH',
-        data: { waba: { id: 'waba-4' }, phone_number: { id: 'phone-4' } },
+        event: 'finish',
+        data: { session_info: { waba_id: 'waba-4', phone_number_id: 'phone-4' } },
       },
     })
 
+    expect(result?.event).toBe('FINISH')
     expect(result?.data.waba_id).toBe('waba-4')
     expect(result?.data.phone_number_id).toBe('phone-4')
+  })
+
+  it('aceita mensagem encapsulada em payload', () => {
+    const result = parseMetaSignupMessage({
+      origin: 'https://www.facebook.com',
+      data: { payload: { type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH', data: { waba_id: 'waba-5' } } },
+    })
+    expect(result?.data.waba_id).toBe('waba-5')
+  })
+
+  it('gera diagnóstico sanitizado sem expor payload', () => {
+    const diagnostic = inspectMetaSignupEvent({
+      origin: 'https://www.facebook.com',
+      data: JSON.stringify({ type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH', data: { waba_id: 'secret-waba', phone_number_id: 'secret-phone' } }),
+    })
+
+    expect(diagnostic).toEqual(expect.objectContaining({
+      stage: 'message',
+      event: 'FINISH',
+      type: 'WA_EMBEDDED_SIGNUP',
+      hasWabaId: true,
+      hasPhoneNumberId: true,
+    }))
+    expect(JSON.stringify(diagnostic)).not.toContain('secret-waba')
+    expect(JSON.stringify(diagnostic)).not.toContain('secret-phone')
   })
 
   it('ignora origem não confiável', () => {

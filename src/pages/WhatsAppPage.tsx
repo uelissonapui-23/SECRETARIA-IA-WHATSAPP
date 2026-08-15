@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../utils/errorMessage'
-import { metaSignupConfigured, startWhatsAppEmbeddedSignup } from '../whatsapp/metaEmbeddedSignup'
+import { metaSignupConfigured, startWhatsAppEmbeddedSignup, type MetaSignupDiagnostic } from '../whatsapp/metaEmbeddedSignup'
 
 type Connection = {
   id: string
@@ -32,7 +32,7 @@ export function WhatsAppPage() {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
-  const [metaDebug, setMetaDebug] = useState('')
+  const [metaDiagnostic, setMetaDiagnostic] = useState<MetaSignupDiagnostic | null>(null)
 
   const canManage = currentMembership?.role === 'owner' || currentMembership?.role === 'admin'
   const connected = connection?.status === 'connected'
@@ -59,7 +59,7 @@ export function WhatsAppPage() {
 
   async function connect() {
     if (!currentCompany || !canManage) return
-    setError(''); setNotice(''); setMetaDebug(''); setBusy(true)
+    setError(''); setNotice(''); setMetaDiagnostic(null); setBusy(true)
     try {
       await startWhatsAppEmbeddedSignup(async (code, meta) => {
         try {
@@ -73,14 +73,7 @@ export function WhatsAppPage() {
           await Promise.all([load(), refresh()])
         } catch (err) { setError(errorMessage(err)) }
         finally { setBusy(false) }
-      }, (message) => {
-        setNotice(message)
-        if (/cancelada|erro|não retornou|não concluiu|incomplet|não informou|tente novamente/i.test(message)) setBusy(false)
-      }, (debug) => {
-        const type = debug.type ?? 'sem tipo'
-        const event = debug.event ?? 'sem evento'
-        setMetaDebug(`Meta: ${type} / ${event} · WABA: ${debug.hasWabaId ? 'sim' : 'não'} · número: ${debug.hasPhoneNumberId ? 'sim' : 'não'}`)
-      })
+      }, (message) => { setNotice(message); if (/cancelada|erro|não retornou|não concluiu|incomplet|não informou|não enviou|tempo esperado|tente novamente/i.test(message)) setBusy(false) }, (diagnostic) => setMetaDiagnostic(diagnostic))
     } catch (err) { setError(errorMessage(err)); setBusy(false) }
   }
 
@@ -115,7 +108,7 @@ export function WhatsAppPage() {
           {canManage ? <button className="primary-button connect-button" type="button" onClick={connect} disabled={busy || !metaSignupConfigured()}><Link2 size={17}/>{busy?'Aguardando Meta...':'Conectar WhatsApp'}</button> : <div className="permission-note">Somente proprietário ou administrador da empresa pode alterar a conexão.</div>}
         </>}
         {notice && <div className="form-success whatsapp-message">{notice}</div>}
-        {metaDebug && <div className="permission-note whatsapp-message"><strong>Diagnóstico Meta:</strong> {metaDebug}</div>}
+        {metaDiagnostic && <div className="integration-warning whatsapp-message"><CircleAlert size={18}/><div><strong>Diagnóstico Meta</strong><span>Etapa: {metaDiagnostic.stage}{metaDiagnostic.event ? ` · Evento: ${metaDiagnostic.event}` : ''}{metaDiagnostic.type ? ` · Tipo: ${metaDiagnostic.type}` : ''} · código: {metaDiagnostic.hasAuthorizationCode ? 'sim' : 'não/informado'} · WABA: {metaDiagnostic.hasWabaId ? 'sim' : 'não'} · número: {metaDiagnostic.hasPhoneNumberId ? 'sim' : 'não'}</span></div></div>}
         {error && <div className="form-error whatsapp-message">{error}</div>}
       </div>
 
