@@ -102,6 +102,13 @@ describe('parseMetaSignupMessage', () => {
     expect(JSON.stringify(diagnostic)).not.toContain('secret-phone')
   })
 
+  it('ignora mensagem interna do SDK do Facebook que contém code', () => {
+    const internalMessage = 'cb=f9683195a1fa6eb56&domain=secretaria-ia-whatsapp-iota.vercel.app&is_canvas=false&origin=https%3A%2F%2Fsecretaria-ia-whatsapp-iota.vercel.app&relation=opener&frame=fake&code=fake-oauth-code&base_domain=vercel.app'
+
+    expect(parseMetaSignupMessage({ origin: 'https://www.facebook.com', data: internalMessage })).toBeNull()
+    expect(inspectMetaSignupEvent({ origin: 'https://www.facebook.com', data: internalMessage })).toBeNull()
+  })
+
   it('ignora origem não confiável', () => {
     const result = parseMetaSignupMessage({
       origin: 'https://example.com',

@@ -77,6 +77,29 @@ function isTrustedMetaOrigin(origin: string) {
   }
 }
 
+function isFacebookSdkInternalMessage(value: unknown) {
+  if (typeof value !== 'string') return false
+
+  const candidates = [value]
+  try {
+    const decoded = decodeURIComponent(value)
+    if (decoded !== value) candidates.push(decoded)
+  } catch {
+    // Mantém apenas a string original.
+  }
+
+  return candidates.some((candidate) => {
+    try {
+      const params = new URLSearchParams(candidate.startsWith('?') ? candidate.slice(1) : candidate)
+      // O SDK do Facebook usa mensagens próprias entre popup/iframe e opener.
+      // Elas podem conter `code`, mas NÃO são o WA_EMBEDDED_SIGNUP.
+      return Boolean(params.get('cb') && params.get('domain') && (params.get('relation') || params.get('frame')))
+    } catch {
+      return false
+    }
+  })
+}
+
 function payloadObject(value: unknown): { record: Record<string, unknown> | null; payloadKind: MetaSignupDiagnostic['payloadKind'] } {
   if (typeof value === 'string') {
     const candidates = [value]
@@ -211,7 +234,9 @@ export function parseMetaSignupMessage(event: Pick<MessageEvent, 'origin' | 'dat
   }
 }
 
-export function inspectMetaSignupEvent(event: Pick<MessageEvent, 'origin' | 'data'>): MetaSignupDiagnostic {
+export function inspectMetaSignupEvent(event: Pick<MessageEvent, 'origin' | 'data'>): MetaSignupDiagnostic | null {
+  if (isFacebookSdkInternalMessage(event.data)) return null
+
   const trustedOrigin = isTrustedMetaOrigin(event.origin)
   const { record: rawRecord, payloadKind } = payloadObject(event.data)
   if (!rawRecord) return { stage: 'message', origin: event.origin, payloadKind, trustedOrigin, payloadPreview: sanitizedPayloadPreview(event.data) }
@@ -409,9 +434,14 @@ export async function startWhatsAppEmbeddedSignup(
     config_id: env.metaConfigId,
     response_type: 'code',
     override_default_response_type: true,
-    // Embedded Signup v4 atual: a versão é determinada pela configuração
-    // criada no painel da Meta. Para v4, não enviamos sessionInfoVersion/version
-    // manualmente em extras; isso evita iniciar apenas o OAuth sem a sessão WA.
-    extras: {},
+    // O OAuth e o WA_EMBEDDED_SIGNUP são canais diferentes. `setup` inicia o
+    // fluxo incorporado e `sessionInfoVersion` habilita o postMessage de sessão
+    // que entrega WABA/phone_number_id. Sem isso, o login pode retornar `code`
+    // normalmente e nunca enviar a sessão do WhatsApp.
+    extras: {
+      setup: {},
+      featureType: '',
+      sessionInfoVersion: '3',
+    },
   })
 }
