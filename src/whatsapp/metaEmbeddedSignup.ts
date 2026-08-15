@@ -30,6 +30,30 @@ export type MetaSignupDiagnostic = {
   loginStatus?: string
   trustedOrigin?: boolean
   topLevelKeys?: string[]
+  payloadPreview?: string
+}
+
+function sanitizedPayloadPreview(value: unknown) {
+  if (typeof value !== 'string') return undefined
+  let preview = value.trim()
+  if (!preview) return '(vazio)'
+
+  // Mostra apenas estrutura suficiente para diagnóstico e mascara valores que
+  // possam conter credenciais, códigos OAuth, tokens ou IDs longos.
+  try {
+    preview = decodeURIComponent(preview)
+  } catch {
+    // Mantém a string original quando não estiver percent-encoded.
+  }
+
+  preview = preview
+    .replace(/(access[_-]?token|input[_-]?token|token|code|authorization|signed_request)([\"'=:\s]+)([^&\s,}\"]+)/gi, '$1$2[oculto]')
+    .replace(/EAA[A-Za-z0-9_-]{12,}/g, '[token-oculto]')
+    .replace(/\b\d{12,}\b/g, '[id-oculto]')
+    .replace(/[A-Za-z0-9_-]{40,}/g, '[valor-longo-oculto]')
+    .replace(/\s+/g, ' ')
+
+  return preview.length > 220 ? `${preview.slice(0, 220)}…` : preview
 }
 
 function stringValue(value: unknown) {
@@ -190,7 +214,7 @@ export function parseMetaSignupMessage(event: Pick<MessageEvent, 'origin' | 'dat
 export function inspectMetaSignupEvent(event: Pick<MessageEvent, 'origin' | 'data'>): MetaSignupDiagnostic {
   const trustedOrigin = isTrustedMetaOrigin(event.origin)
   const { record: rawRecord, payloadKind } = payloadObject(event.data)
-  if (!rawRecord) return { stage: 'message', origin: event.origin, payloadKind, trustedOrigin }
+  if (!rawRecord) return { stage: 'message', origin: event.origin, payloadKind, trustedOrigin, payloadPreview: sanitizedPayloadPreview(event.data) }
   if (!trustedOrigin) return { stage: 'message', origin: event.origin, payloadKind, trustedOrigin, topLevelKeys: Object.keys(rawRecord).slice(0, 12) }
   const record = unwrapSignupRecord(rawRecord)
   const parsed = parseMetaSignupMessage(event)
