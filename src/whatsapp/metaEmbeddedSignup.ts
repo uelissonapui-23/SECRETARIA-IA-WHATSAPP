@@ -47,7 +47,7 @@ function sanitizedPayloadPreview(value: unknown) {
   }
 
   preview = preview
-    .replace(/(access[_-]?token|input[_-]?token|token|code|authorization|signed_request)([\"'=:\s]+)([^&\s,}\"]+)/gi, '$1$2[oculto]')
+    .replace(/(access[_-]?token|input[_-]?token|token|code|authorization|signed_request)(["'=:\s]+)([^&\s,}"]+)/gi, '$1$2[oculto]')
     .replace(/EAA[A-Za-z0-9_-]{12,}/g, '[token-oculto]')
     .replace(/\b\d{12,}\b/g, '[id-oculto]')
     .replace(/[A-Za-z0-9_-]{40,}/g, '[valor-longo-oculto]')
