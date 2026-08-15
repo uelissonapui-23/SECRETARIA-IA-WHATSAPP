@@ -36,8 +36,8 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await service.auth.getUser(jwt)
     if (userError || !user) return json({ error: 'not_authenticated' }, 401)
 
-    const { company_id, code, waba_id, phone_number_id, business_id } = await req.json()
-    if (!company_id || !code || !waba_id || !phone_number_id) return json({ error: 'missing_connection_data' }, 400)
+    const { company_id, code, waba_id, phone_number_id: requestedPhoneNumberId, business_id } = await req.json()
+    if (!company_id || !code || !waba_id) return json({ error: 'missing_connection_data' }, 400)
 
     const { data: membership } = await service.from('company_members').select('role').eq('company_id', company_id).eq('user_id', user.id).maybeSingle()
     if (!membership || !['owner', 'admin'].includes(membership.role)) return json({ error: 'not_company_admin' }, 403)
@@ -57,13 +57,30 @@ Deno.serve(async (req) => {
     const accessToken = tokenPayload.access_token as string
 
     await graph(`${waba_id}/subscribed_apps`, accessToken, { method: 'POST', body: '{}' })
-    const phone = await graph(`${phone_number_id}?fields=id,display_phone_number,verified_name,quality_rating`, accessToken)
+
+    // Em alguns términos válidos do Embedded Signup v4 (FINISH_ONLY_WABA),
+    // a Meta retorna a WABA sem phone_number_id no postMessage. Nesse caso,
+    // resolvemos o número pelo Graph API depois da troca segura do code.
+    let phoneNumberId = typeof requestedPhoneNumberId === 'string' && requestedPhoneNumberId.trim()
+      ? requestedPhoneNumberId.trim()
+      : ''
+
+    if (!phoneNumberId) {
+      const phoneList = await graph(`${waba_id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating`, accessToken)
+      const phones = Array.isArray(phoneList?.data) ? phoneList.data : []
+      if (phones.length === 0) return json({ error: 'Nenhum número do WhatsApp foi encontrado nesta conta. Conclua a seleção/registro do número na Meta e tente novamente.' }, 409)
+      if (phones.length > 1) return json({ error: 'A conta possui mais de um número. Reabra a conexão e selecione explicitamente o número que deseja vincular.' }, 409)
+      phoneNumberId = String(phones[0].id ?? '')
+      if (!phoneNumberId) return json({ error: 'A Meta não retornou a identificação do número selecionado.' }, 409)
+    }
+
+    const phone = await graph(`${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating`, accessToken)
 
     const now = new Date().toISOString()
     const { data: connection, error: connectionError } = await service.from('whatsapp_connections').upsert({
       company_id,
       waba_id,
-      phone_number_id,
+      phone_number_id: phoneNumberId,
       business_id: business_id ?? null,
       display_phone_number: phone.display_phone_number ?? null,
       phone_number_name: phone.verified_name ?? null,
@@ -84,7 +101,7 @@ Deno.serve(async (req) => {
     if (tokenError) throw tokenError
 
     await service.from('companies').update({ monitoring_started_at: now, updated_at: now }).eq('id', company_id)
-    await service.from('audit_logs').insert({ company_id, actor_user_id: user.id, action: 'whatsapp.connected', entity_type: 'whatsapp_connection', entity_id: connection.id, metadata: { waba_id, phone_number_id } })
+    await service.from('audit_logs').insert({ company_id, actor_user_id: user.id, action: 'whatsapp.connected', entity_type: 'whatsapp_connection', entity_id: connection.id, metadata: { waba_id, phone_number_id: phoneNumberId } })
 
     return json({ connection })
   } catch (error) {

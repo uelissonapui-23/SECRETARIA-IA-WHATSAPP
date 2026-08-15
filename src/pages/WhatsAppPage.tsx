@@ -72,7 +72,7 @@ export function WhatsAppPage() {
           await Promise.all([load(), refresh()])
         } catch (err) { setError(errorMessage(err)) }
         finally { setBusy(false) }
-      }, (message) => { setNotice(message); if (/cancelada|erro|não retornou/i.test(message)) setBusy(false) })
+      }, (message) => { setNotice(message); if (/cancelada|erro|não retornou|não concluiu|incomplet|não informou|tente novamente/i.test(message)) setBusy(false) })
     } catch (err) { setError(errorMessage(err)); setBusy(false) }
   }
 
