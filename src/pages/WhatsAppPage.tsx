@@ -20,6 +20,20 @@ type Connection = {
   last_error: string | null
 }
 
+async function functionInvokeErrorMessage(error: unknown) {
+  const context = (error as { context?: Response } | null)?.context
+  if (context && typeof context.clone === 'function') {
+    try {
+      const payload = await context.clone().json() as { error?: string; step?: string; trace_id?: string }
+      if (payload?.error) {
+        const reference = payload.trace_id ? ` [ref. ${payload.trace_id}]` : ''
+        return `${payload.error}${reference}`
+      }
+    } catch { /* resposta sem JSON; usa a mensagem padrão abaixo */ }
+  }
+  return errorMessage(error)
+}
+
 function formatDate(value: string | null) {
   if (!value) return 'Ainda não'
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
@@ -67,8 +81,8 @@ export function WhatsAppPage() {
           const { data, error: invokeError } = await supabase.functions.invoke('whatsapp-connect', {
             body: { company_id: currentCompany.id, code, ...meta },
           })
-          if (invokeError) throw invokeError
-          if (data?.error) throw new Error(data.error)
+          if (invokeError) throw new Error(await functionInvokeErrorMessage(invokeError))
+          if (data?.error) throw new Error(`${data.error}${data.trace_id ? ` [ref. ${data.trace_id}]` : ''}`)
           setNotice('WhatsApp conectado. A Secretária passa a observar somente novas mensagens a partir de agora.')
           await Promise.all([load(), refresh()])
         } catch (err) { setError(errorMessage(err)) }
