@@ -14,6 +14,34 @@ function serviceClient() {
   return createClient(Deno.env.get('SUPABASE_URL')!, key, { auth: { persistSession: false } })
 }
 
+async function canManageCompany(service: ReturnType<typeof serviceClient>, companyId: string, userId: string) {
+  const [{ data: membership, error: membershipError }, { data: company, error: companyError }] = await Promise.all([
+    service.from('company_members').select('role').eq('company_id', companyId).eq('user_id', userId).maybeSingle(),
+    service.from('companies').select('created_by').eq('id', companyId).maybeSingle(),
+  ])
+
+  if (membershipError) throw membershipError
+  if (companyError) throw companyError
+
+  const role = typeof membership?.role === 'string' ? membership.role : null
+  const isAdminMember = role === 'owner' || role === 'admin'
+  const isCreator = company?.created_by === userId
+
+  // `created_by` é a autoridade final para a empresa original. Se um dado antigo
+  // perdeu/alterou o vínculo de owner em company_members, restauramos esse vínculo
+  // sem conceder acesso a nenhuma outra pessoa.
+  if (isCreator && role !== 'owner') {
+    const { error: repairError } = await service.from('company_members').upsert({
+      company_id: companyId,
+      user_id: userId,
+      role: 'owner',
+    }, { onConflict: 'company_id,user_id' })
+    if (repairError) throw repairError
+  }
+
+  return { allowed: isAdminMember || isCreator, role, isCreator }
+}
+
 async function graph(path: string, token: string, init?: RequestInit) {
   const version = Deno.env.get('META_GRAPH_VERSION') ?? 'v26.0'
   const response = await fetch(`https://graph.facebook.com/${version}/${path}`, {
@@ -47,9 +75,10 @@ Deno.serve(async (req) => {
     if (!company_id || !code) return fail('request-validation', 'missing_connection_data', 400, { has_company_id: Boolean(company_id), has_code: Boolean(code) })
     log('request-validated', { company_id, has_waba_id: Boolean(waba_id), has_phone_number_id: Boolean(requestedPhoneNumberId), has_business_id: Boolean(business_id) })
 
-    const { data: membership } = await service.from('company_members').select('role').eq('company_id', company_id).eq('user_id', user.id).maybeSingle()
-    if (!membership || !['owner', 'admin'].includes(membership.role)) return fail('membership', 'not_company_admin', 403)
-    log('membership-ok', { role: membership.role })
+    const permission = await canManageCompany(service, company_id, user.id)
+    log('membership-check', { role: permission.role, is_creator: permission.isCreator, allowed: permission.allowed })
+    if (!permission.allowed) return fail('membership', 'not_company_admin', 403)
+    log('membership-ok', { role: permission.role ?? (permission.isCreator ? 'owner' : null), recovered_from_creator: permission.isCreator && permission.role !== 'owner' })
 
     const appId = Deno.env.get('META_APP_ID') ?? ''
     const appSecret = Deno.env.get('META_APP_SECRET') ?? ''

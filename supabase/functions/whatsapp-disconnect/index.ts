@@ -13,6 +13,34 @@ function serviceClient() {
   return createClient(Deno.env.get('SUPABASE_URL')!, key, { auth: { persistSession: false } })
 }
 
+async function canManageCompany(service: ReturnType<typeof serviceClient>, companyId: string, userId: string) {
+  const [{ data: membership, error: membershipError }, { data: company, error: companyError }] = await Promise.all([
+    service.from('company_members').select('role').eq('company_id', companyId).eq('user_id', userId).maybeSingle(),
+    service.from('companies').select('created_by').eq('id', companyId).maybeSingle(),
+  ])
+
+  if (membershipError) throw membershipError
+  if (companyError) throw companyError
+
+  const role = typeof membership?.role === 'string' ? membership.role : null
+  const isAdminMember = role === 'owner' || role === 'admin'
+  const isCreator = company?.created_by === userId
+
+  // `created_by` é a autoridade final para a empresa original. Se um dado antigo
+  // perdeu/alterou o vínculo de owner em company_members, restauramos esse vínculo
+  // sem conceder acesso a nenhuma outra pessoa.
+  if (isCreator && role !== 'owner') {
+    const { error: repairError } = await service.from('company_members').upsert({
+      company_id: companyId,
+      user_id: userId,
+      role: 'owner',
+    }, { onConflict: 'company_id,user_id' })
+    if (repairError) throw repairError
+  }
+
+  return { allowed: isAdminMember || isCreator, role, isCreator }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
@@ -27,8 +55,8 @@ Deno.serve(async (req) => {
     const { company_id } = await req.json()
     if (!company_id) return json({ error: 'company_id_required' }, 400)
 
-    const { data: membership } = await service.from('company_members').select('role').eq('company_id', company_id).eq('user_id', user.id).maybeSingle()
-    if (!membership || !['owner', 'admin'].includes(membership.role)) return json({ error: 'not_company_admin' }, 403)
+    const permission = await canManageCompany(service, company_id, user.id)
+    if (!permission.allowed) return json({ error: 'not_company_admin' }, 403)
 
     const { data: connection } = await service.from('whatsapp_connections').select('*').eq('company_id', company_id).maybeSingle()
     if (!connection) return json({ ok: true })
