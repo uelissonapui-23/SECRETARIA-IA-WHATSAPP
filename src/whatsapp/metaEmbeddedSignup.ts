@@ -18,7 +18,7 @@ export type MetaSignupMessage = {
 }
 
 export type MetaSignupDiagnostic = {
-  stage: 'sdk-ready' | 'login-start' | 'message' | 'login-callback' | 'authorization-without-session' | 'complete'
+  stage: 'sdk-ready' | 'login-start' | 'message' | 'login-callback' | 'code-only-fallback' | 'complete'
   origin?: string
   type?: string
   event?: string
@@ -419,16 +419,20 @@ export async function startWhatsAppEmbeddedSignup(
       : 'Autorização recebida. Aguardando a seleção da conta e do número...')
     finishIfReady()
 
-    // Se o OAuth devolver o code, mas a Meta não enviar WA_EMBEDDED_SIGNUP,
-    // não deixamos a interface presa indefinidamente. Esse diagnóstico separa
-    // claramente problema de OAuth de problema do postMessage do Embedded Signup.
+    // Algumas versões atuais do Facebook Login for Business concluem o OAuth
+    // sem entregar o WA_EMBEDDED_SIGNUP por postMessage ao opener. O `code` ainda
+    // é suficiente: o backend troca o código e descobre a WABA autorizada pelos
+    // granular_scopes/target_ids da Meta. Damos uma janela curta ao FINISH normal
+    // e, se ele não chegar, seguimos pelo caminho seguro de descoberta no servidor.
     if (!signupData) {
       postAuthWatchdog = window.setTimeout(() => {
         if (completed || signupData) return
-        onDiagnostic?.({ stage: 'authorization-without-session', hasAuthorizationCode: true, hasWabaId: false, hasPhoneNumberId: false })
+        completed = true
+        onDiagnostic?.({ stage: 'code-only-fallback', hasAuthorizationCode: true, hasWabaId: false, hasPhoneNumberId: false })
         cleanup()
-        onStatus('A Meta autorizou o login, mas não enviou os dados da conta/número do Cadastro Incorporado. Reabra a conexão para tentar novamente.')
-      }, 20_000)
+        onStatus('Autorização recebida. Localizando a conta e o número autorizados pela Meta...')
+        onComplete(authCode, { waba_id: '' })
+      }, 2_000)
     }
   }, {
     config_id: env.metaConfigId,

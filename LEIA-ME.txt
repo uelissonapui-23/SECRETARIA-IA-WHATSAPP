@@ -1,0 +1,11 @@
+CORRECAO WHATSAPP EMBEDDED SIGNUP
+
+Extraia o conteudo deste ZIP diretamente na raiz do projeto e confirme a substituicao dos arquivos.
+
+Arquivos alterados:
+- src/whatsapp/metaEmbeddedSignup.ts
+- supabase/functions/whatsapp-connect/index.ts
+
+A correcao adiciona fallback seguro quando a Meta retorna o code OAuth mas nao envia o postMessage WA_EMBEDDED_SIGNUP. Nesse caso, o backend troca o code e tenta identificar a WABA autorizada pelos granular_scopes/target_ids da Meta, depois localiza o numero via Graph API.
+
+IMPORTANTE: como a Edge Function whatsapp-connect foi alterada, alem do deploy do frontend e necessario publicar as funcoes Supabase pelo fluxo de deploy ja configurado no projeto.

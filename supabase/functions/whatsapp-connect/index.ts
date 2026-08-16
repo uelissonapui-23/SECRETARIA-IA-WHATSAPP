@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     if (userError || !user) return json({ error: 'not_authenticated' }, 401)
 
     const { company_id, code, waba_id, phone_number_id: requestedPhoneNumberId, business_id } = await req.json()
-    if (!company_id || !code || !waba_id) return json({ error: 'missing_connection_data' }, 400)
+    if (!company_id || !code) return json({ error: 'missing_connection_data' }, 400)
 
     const { data: membership } = await service.from('company_members').select('role').eq('company_id', company_id).eq('user_id', user.id).maybeSingle()
     if (!membership || !['owner', 'admin'].includes(membership.role)) return json({ error: 'not_company_admin' }, 403)
@@ -56,7 +56,32 @@ Deno.serve(async (req) => {
     if (!tokenResponse.ok || !tokenPayload.access_token) throw new Error(tokenPayload?.error?.message ?? 'Falha ao trocar código da Meta')
     const accessToken = tokenPayload.access_token as string
 
-    await graph(`${waba_id}/subscribed_apps`, accessToken, { method: 'POST', body: '{}' })
+    // O postMessage WA_EMBEDDED_SIGNUP nem sempre chega ao opener nas versões
+    // atuais do Login for Business. Quando o frontend recebe somente o `code`,
+    // descobrimos a WABA explicitamente autorizada a partir dos granular_scopes
+    // do token, sem confiar em IDs enviados pelo navegador.
+    let resolvedWabaId = typeof waba_id === 'string' && waba_id.trim() ? waba_id.trim() : ''
+    if (!resolvedWabaId) {
+      const debugUrl = new URL(`https://graph.facebook.com/${version}/debug_token`)
+      debugUrl.searchParams.set('input_token', accessToken)
+      debugUrl.searchParams.set('access_token', `${appId}|${appSecret}`)
+      const debugResponse = await fetch(debugUrl)
+      const debugPayload = await debugResponse.json().catch(() => ({}))
+      if (!debugResponse.ok) throw new Error(debugPayload?.error?.message ?? 'Não foi possível validar a autorização da Meta')
+
+      const scopes = Array.isArray(debugPayload?.data?.granular_scopes) ? debugPayload.data.granular_scopes : []
+      const targetIds = [...new Set(scopes
+        .filter((scope: { scope?: string }) => scope?.scope === 'whatsapp_business_management' || scope?.scope === 'whatsapp_business_messaging')
+        .flatMap((scope: { target_ids?: unknown }) => Array.isArray(scope?.target_ids) ? scope.target_ids : [])
+        .map((id: unknown) => String(id ?? '').trim())
+        .filter(Boolean))]
+
+      if (targetIds.length === 0) return json({ error: 'A Meta autorizou o login, mas não informou qual conta do WhatsApp foi concedida. Revise o acesso à Conta do WhatsApp na configuração do Facebook Login for Business.' }, 409)
+      if (targetIds.length > 1) return json({ error: 'A autorização contém mais de uma conta do WhatsApp. Deixe apenas a conta que deseja conectar nesta configuração e tente novamente.' }, 409)
+      resolvedWabaId = targetIds[0]
+    }
+
+    await graph(`${resolvedWabaId}/subscribed_apps`, accessToken, { method: 'POST', body: '{}' })
 
     // Em alguns términos válidos do Embedded Signup v4 (FINISH_ONLY_WABA),
     // a Meta retorna a WABA sem phone_number_id no postMessage. Nesse caso,
@@ -66,7 +91,7 @@ Deno.serve(async (req) => {
       : ''
 
     if (!phoneNumberId) {
-      const phoneList = await graph(`${waba_id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating`, accessToken)
+      const phoneList = await graph(`${resolvedWabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating`, accessToken)
       const phones = Array.isArray(phoneList?.data) ? phoneList.data : []
       if (phones.length === 0) return json({ error: 'Nenhum número do WhatsApp foi encontrado nesta conta. Conclua a seleção/registro do número na Meta e tente novamente.' }, 409)
       if (phones.length > 1) return json({ error: 'A conta possui mais de um número. Reabra a conexão e selecione explicitamente o número que deseja vincular.' }, 409)
@@ -79,7 +104,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString()
     const { data: connection, error: connectionError } = await service.from('whatsapp_connections').upsert({
       company_id,
-      waba_id,
+      waba_id: resolvedWabaId,
       phone_number_id: phoneNumberId,
       business_id: business_id ?? null,
       display_phone_number: phone.display_phone_number ?? null,
@@ -101,7 +126,7 @@ Deno.serve(async (req) => {
     if (tokenError) throw tokenError
 
     await service.from('companies').update({ monitoring_started_at: now, updated_at: now }).eq('id', company_id)
-    await service.from('audit_logs').insert({ company_id, actor_user_id: user.id, action: 'whatsapp.connected', entity_type: 'whatsapp_connection', entity_id: connection.id, metadata: { waba_id, phone_number_id: phoneNumberId } })
+    await service.from('audit_logs').insert({ company_id, actor_user_id: user.id, action: 'whatsapp.connected', entity_type: 'whatsapp_connection', entity_id: connection.id, metadata: { waba_id: resolvedWabaId, phone_number_id: phoneNumberId } })
 
     return json({ connection })
   } catch (error) {
