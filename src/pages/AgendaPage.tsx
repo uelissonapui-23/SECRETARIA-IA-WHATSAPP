@@ -179,7 +179,7 @@ export function AgendaPage() {
           </div>
           <div className="row-actions">
             <button className="secondary-button" onClick={() => openEdit(item)}>{item.status === 'scheduled' ? 'Editar / reagendar' : <><RotateCcw size={15}/>Reabrir</>}</button>
-            {item.status === 'scheduled' && <><button className="icon-button small success" onClick={() => void setStatus(item,'completed')} title="Concluir"><Check size={16}/></button><button className="icon-button small" onClick={() => void setStatus(item,'cancelled')} title="Cancelar"><X size={16}/></button></>}
+            {item.status === 'scheduled' && <><button className="secondary-button quick-success" onClick={() => void setStatus(item,'completed')}><Check size={16}/>Concluir</button><button className="secondary-button" onClick={() => void setStatus(item,'cancelled')}><X size={16}/>Cancelar</button></>}
             <button className="icon-button small danger" onClick={() => void remove(item)} title="Excluir"><Trash2 size={16}/></button>
           </div>
         </article>)}

@@ -322,3 +322,88 @@ h1,h2,h3,h4,h5,h6,p,span,strong,small,label,a,button,td,th{overflow-wrap:anywher
   .sidebar .nav-link{font-size:.9rem;padding:13px 14px}
   .topbar{min-height:80px}
 }
+
+/* ============================================================
+   Responsividade V3 — regra estrutural obrigatória
+   Corrige sobreposição do menu, overflow de cards/ações e telas intermediárias.
+   ============================================================ */
+.app-shell{display:block;min-width:0}
+.main-area{width:auto;min-width:0;max-width:none}
+.content>*{max-width:100%;min-width:0}
+.start-here-card{grid-template-columns:minmax(180px,.5fr) minmax(0,1.5fr)}
+.quick-action-grid{grid-template-columns:repeat(auto-fit,minmax(165px,1fr));min-width:0}
+.quick-action-grid button,.quick-action-grid a{width:100%;max-width:100%;overflow:hidden}
+.quick-action-grid strong,.quick-action-grid small{white-space:normal;overflow-wrap:anywhere}
+.summary-grid{width:100%}
+.summary-card{min-width:0}
+.panel-card,.toolbar-card,.start-here-card,.day-brief-card,.dashboard-heading,.settings-hero,.secretary-intro{max-width:100%;overflow:hidden}
+.record-list,.cards-stack,.compact-list,.focus-list{min-width:0;max-width:100%}
+.master-tabs,.master-subtabs,.segment-control,.secretary-tabs{overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin}
+.master-tabs button,.master-subtabs button,.segment-control button,.secretary-tabs button{flex:0 0 auto}
+
+/* Notebook estreito: menu lateral deixa de disputar espaço com o conteúdo. */
+@media(max-width:1100px){
+  .sidebar{display:none!important}
+  .main-area{margin-left:0!important;width:100%!important}
+  .bottom-nav{position:fixed;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;z-index:40;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -8px 28px rgba(42,59,84,.08)}
+  .bottom-link{min-width:0;min-height:62px;color:#64748b;text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:10px;border:0;background:#fff;padding:5px 2px}
+  .bottom-link span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bottom-link.active{color:#138c80;font-weight:800}
+  .content{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+  .mobile-more-backdrop{display:flex;position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:50;align-items:flex-end}
+  .start-here-card{grid-template-columns:1fr}
+}
+
+@media(min-width:1101px) and (max-width:1350px){
+  .sidebar{width:220px}
+  .main-area{margin-left:220px}
+  .content{padding-inline:24px}
+  .quick-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .summary-grid,.summary-grid.four,.summary-grid.three.compact-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(max-width:800px){
+  .content{padding-inline:14px}
+  .dashboard-heading,.start-here-card,.day-brief-card,.panel-card,.toolbar-card,.settings-hero,.secretary-intro{border-radius:18px}
+  .quick-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .start-here-card{gap:16px;padding:18px}
+  .section-heading,.panel-head{align-items:flex-start;flex-wrap:wrap}
+  .section-heading>*:last-child,.panel-head>*:last-child{max-width:100%}
+  .attention-card{min-width:0}
+  .card-actions{width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));justify-content:stretch}
+  .card-actions button{width:100%;justify-content:center}
+}
+
+@media(max-width:560px){
+  .quick-action-grid{grid-template-columns:1fr}
+  .summary-grid,.summary-grid.four,.summary-grid.three.compact-summary{grid-template-columns:1fr!important}
+  .topbar{padding-inline:12px}
+  .topbar-company{max-width:calc(100% - 50px)}
+  .topbar-company strong{font-size:13px}
+  .page-heading h1,.empty-page h1,.dashboard-heading h1,.settings-hero h1{font-size:clamp(1.55rem,8vw,1.9rem)}
+  .record-row,.record-row:has(.date-badge){grid-template-columns:1fr!important}
+  .record-row>.date-badge{justify-self:start}
+  .record-row>.date-badge+.record-main,.record-main{grid-column:1!important}
+  .row-actions{grid-column:1!important;grid-template-columns:1fr 1fr}
+  .row-actions>*{min-width:0}
+  .bottom-link{font-size:9px}
+  .bottom-link svg{width:18px;height:18px}
+  .notification-popover{left:8px;right:8px;width:auto;max-height:calc(100dvh - 84px)}
+}
+
+@media(max-width:380px){
+  .content{padding-inline:10px}
+  .row-actions{grid-template-columns:1fr}
+  .bottom-link span{font-size:8px}
+  .brand-mark{width:38px;height:38px}
+}
+
+/* Paisagem baixa, comum em celular girado e algumas TVs/monitores embutidos. */
+@media(max-height:600px) and (max-width:1100px){
+  .bottom-link{min-height:52px}
+  .content{padding-bottom:70px}
+  .modal-card{max-height:96dvh}
+}
+.quick-success{background:#ecfdf5!important;border-color:#b7eadf!important;color:#11796f!important}
+@media(max-width:700px){.work-row .row-actions,.appointment-row .row-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.work-row .row-actions .icon-button,.appointment-row .row-actions .icon-button{width:100%;min-width:44px}.work-row .row-actions .secondary-button,.appointment-row .row-actions .secondary-button{min-height:40px}}
+@media(max-width:380px){.work-row .row-actions,.appointment-row .row-actions{grid-template-columns:1fr}}
