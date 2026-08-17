@@ -1,59 +1,34 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Activity, Building2, Database, MessageCircle, RefreshCw, ShieldCheck, Sparkles, UsersRound } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Activity, Building2, Database, GitBranch, MessageCircle, RefreshCw, ServerCog, ShieldCheck, Sparkles, UsersRound } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { formatDateTime } from '../lib/format'
 
-type Overview = {
-  companies:number
-  users:number
-  whatsapp_connected:number
-  whatsapp_total:number
-  pending_suggestions:number
-  open_work:number
-  messages:number
-}
-type CompanyRow = { id:string; name:string; created_at:string; member_count:number; whatsapp_status:string; open_items:number }
+type Overview={companies:number;users:number;whatsapp_connected:number;whatsapp_total:number;pending_suggestions:number;open_work:number;messages:number}
+type CompanyRow={id:string;name:string;created_at:string;member_count:number;whatsapp_status:string;open_items:number}
+type IntegrationRow={key:string;label:string;provider:string;status:'healthy'|'paused'|'attention'|'unknown';version:string|null;public_config:Record<string,unknown>;notes:string|null;last_checked_at:string|null;updated_at:string}
+type ActivityRow={id:number;action:string;target_company_id:string|null;metadata:Record<string,unknown>;created_at:string}
+
+const integrationIcon=(key:string)=>key==='meta_whatsapp'?MessageCircle:key==='github'?GitBranch:key==='vercel'?ServerCog:Database
+const statusLabel:Record<IntegrationRow['status'],string>={healthy:'Saudável',paused:'Pausado',attention:'Atenção',unknown:'Não verificado'}
 
 export function MasterPage(){
-  const[role,setRole]=useState<string|null>(null)
-  const[overview,setOverview]=useState<Overview|null>(null)
-  const[companies,setCompanies]=useState<CompanyRow[]>([])
-  const[loading,setLoading]=useState(true)
-  const[error,setError]=useState('')
-
-  const load=useCallback(async()=>{
-    setLoading(true);setError('')
-    try{
-      const roleResult=await supabase.rpc('get_my_platform_role')
-      if(roleResult.error)throw roleResult.error
-      const currentRole=(roleResult.data as string|null)??null
-      setRole(currentRole)
-      if(!currentRole){setOverview(null);setCompanies([]);return}
-      const[o,c]=await Promise.all([supabase.rpc('platform_master_overview'),supabase.rpc('platform_master_companies',{limit_rows:80})])
-      if(o.error)throw o.error;if(c.error)throw c.error
-      setOverview(o.data as Overview);setCompanies((c.data??[]) as CompanyRow[])
-    }catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar a Área Master.')}finally{setLoading(false)}
-  },[])
-  useEffect(()=>{void load()},[load])
-
+  const[role,setRole]=useState<string|null>(null);const[overview,setOverview]=useState<Overview|null>(null);const[companies,setCompanies]=useState<CompanyRow[]>([]);const[integrations,setIntegrations]=useState<IntegrationRow[]>([]);const[activity,setActivity]=useState<ActivityRow[]>([]);const[loading,setLoading]=useState(true);const[error,setError]=useState('');const[query,setQuery]=useState('')
+  const load=useCallback(async()=>{setLoading(true);setError('');try{const roleResult=await supabase.rpc('get_my_platform_role');if(roleResult.error)throw roleResult.error;const currentRole=(roleResult.data as string|null)??null;setRole(currentRole);if(!currentRole){setOverview(null);setCompanies([]);setIntegrations([]);setActivity([]);return}const[o,c,i,a]=await Promise.all([supabase.rpc('platform_master_overview'),supabase.rpc('platform_master_companies',{limit_rows:100}),supabase.rpc('platform_master_integrations'),supabase.rpc('platform_master_activity',{limit_rows:25})]);if(o.error)throw o.error;if(c.error)throw c.error;if(i.error)throw i.error;if(a.error)throw a.error;setOverview(o.data as Overview);setCompanies((c.data??[]) as CompanyRow[]);setIntegrations((i.data??[]) as IntegrationRow[]);setActivity((a.data??[]) as ActivityRow[])}catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar a Área Master.')}finally{setLoading(false)}},[]);useEffect(()=>{void load()},[load])
+  const visibleCompanies=useMemo(()=>{const q=query.trim().toLowerCase();return q?companies.filter(c=>c.name.toLowerCase().includes(q)):companies},[companies,query])
   if(loading)return <section><div className="panel-card">Carregando Área Master...</div></section>
   if(!role)return <section><div className="big-empty panel-card"><ShieldCheck size={38}/><h2>Área administrativa restrita</h2><p>Seu usuário não possui função administrativa da plataforma. As permissões Master são independentes das permissões de cada empresa.</p></div></section>
 
   return <section>
-    <div className="page-heading master-heading"><div><span className="eyebrow">ÁREA MASTER · {role.toUpperCase()}</span><h1>Saúde da plataforma</h1><p>Visão administrativa sem expor tokens, segredos ou chaves privadas no navegador.</p></div><button className="secondary-button" onClick={()=>void load()}><RefreshCw size={16}/>Atualizar</button></div>
+    <div className="page-heading master-heading"><div><span className="eyebrow">ÁREA MASTER · {role.toUpperCase()}</span><h1>Comando da plataforma</h1><p>Empresas, integrações, saúde operacional e auditoria sem expor qualquer segredo no navegador.</p></div><button className="secondary-button master-refresh" onClick={()=>void load()}><RefreshCw size={16}/>Atualizar</button></div>
     {error&&<div className="form-error page-message">{error}</div>}
-    {overview&&<div className="master-stats">
-      <div className="master-stat blue"><span><Building2 size={19}/>Empresas</span><strong>{overview.companies}</strong></div>
-      <div className="master-stat violet"><span><UsersRound size={19}/>Usuários</span><strong>{overview.users}</strong></div>
-      <div className="master-stat mint"><span><MessageCircle size={19}/>WhatsApp conectado</span><strong>{overview.whatsapp_connected}<small> / {overview.whatsapp_total}</small></strong></div>
-      <div className="master-stat amber"><span><Sparkles size={19}/>Sugestões pendentes</span><strong>{overview.pending_suggestions}</strong></div>
-      <div className="master-stat coral"><span><Activity size={19}/>Trabalho aberto</span><strong>{overview.open_work}</strong></div>
-      <div className="master-stat navy"><span><Database size={19}/>Mensagens recebidas</span><strong>{overview.messages}</strong></div>
-    </div>}
+    {overview&&<div className="master-stats"><div className="master-stat blue"><span><Building2 size={19}/>Empresas</span><strong>{overview.companies}</strong></div><div className="master-stat violet"><span><UsersRound size={19}/>Usuários</span><strong>{overview.users}</strong></div><div className="master-stat mint"><span><MessageCircle size={19}/>WhatsApp conectado</span><strong>{overview.whatsapp_connected}<small> / {overview.whatsapp_total}</small></strong></div><div className="master-stat amber"><span><Sparkles size={19}/>Sugestões pendentes</span><strong>{overview.pending_suggestions}</strong></div><div className="master-stat coral"><span><Activity size={19}/>Trabalho aberto</span><strong>{overview.open_work}</strong></div><div className="master-stat navy"><span><Database size={19}/>Mensagens recebidas</span><strong>{overview.messages}</strong></div></div>}
 
-    <div className="master-grid">
-      <div className="panel-card master-companies"><div className="panel-head"><div><span className="eyebrow">EMPRESAS</span><h2>Operação atual</h2></div><span className="mini-status">{companies.length} exibidas</span></div><div className="master-table"><div className="master-table-head"><span>Empresa</span><span>Equipe</span><span>WhatsApp</span><span>Pendências</span><span>Criada</span></div>{companies.map(c=><div className="master-table-row" key={c.id}><strong>{c.name}</strong><span>{c.member_count}</span><span className={`integration-state ${c.whatsapp_status==='connected'?'ok':'paused'}`}>{c.whatsapp_status==='connected'?'Conectado':'Pendente'}</span><span>{c.open_items}</span><span>{formatDateTime(c.created_at)}</span></div>)}</div></div>
-      <aside className="panel-card integration-panel"><span className="eyebrow">INTEGRAÇÕES E SEGURANÇA</span><h2>Configuração segura</h2><div className="integration-row"><div className="settings-icon mint"><Database size={18}/></div><div><strong>Supabase</strong><span>Banco, Auth, RLS e Edge Functions</span></div><span className="integration-state ok">Ativo</span></div><div className="integration-row"><div className="settings-icon blue"><MessageCircle size={18}/></div><div><strong>Meta / WhatsApp</strong><span>Fluxo preservado para retomada</span></div><span className="integration-state paused">Pausado</span></div><div className="security-note"><ShieldCheck size={18}/><span>Segredos reais permanecem fora do frontend. Esta tela mostra somente estado operacional e dados públicos da configuração.</span></div></aside>
+    <div className="master-section-title"><div><span className="eyebrow">SAÚDE E INTEGRAÇÕES</span><h2>Serviços que sustentam a Secretária</h2></div><span className="safe-chip"><ShieldCheck size={14}/>Sem segredos no frontend</span></div>
+    <div className="integration-health-grid">{integrations.map(item=>{const Icon=integrationIcon(item.key);return <article className={`integration-health-card status-${item.status}`} key={item.key}><div className="integration-health-top"><span className="settings-icon mint"><Icon size={19}/></span><span className={`integration-state ${item.status==='healthy'?'ok':item.status==='paused'?'paused':'attention'}`}>{statusLabel[item.status]}</span></div><h3>{item.label}</h3><p>{item.notes||item.provider}</p><div className="integration-meta"><span>{item.version||item.provider}</span><span>{item.last_checked_at?`Atualizado ${formatDateTime(item.last_checked_at)}`:'Sem verificação recente'}</span></div></article>})}</div>
+
+    <div className="master-grid master-grid-wide"><div className="panel-card master-companies"><div className="panel-head master-company-head"><div><span className="eyebrow">EMPRESAS</span><h2>Operação atual</h2></div><div className="master-search"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar empresa"/><span className="mini-status">{visibleCompanies.length} exibidas</span></div></div><div className="master-table"><div className="master-table-head"><span>Empresa</span><span>Equipe</span><span>WhatsApp</span><span>Pendências</span><span>Criada</span></div>{visibleCompanies.map(c=><div className="master-table-row" key={c.id}><strong>{c.name}</strong><span>{c.member_count}</span><span className={`integration-state ${c.whatsapp_status==='connected'?'ok':'paused'}`}>{c.whatsapp_status==='connected'?'Conectado':'Pendente'}</span><span>{c.open_items}</span><span>{formatDateTime(c.created_at)}</span></div>)}</div></div>
+      <aside className="panel-card master-activity"><div className="panel-head"><div><span className="eyebrow">AUDITORIA MASTER</span><h2>Atividade recente</h2></div></div>{activity.length?<div className="master-activity-list">{activity.map(row=><div className="master-activity-row" key={row.id}><span className="activity-dot"/><div><strong>{row.action.replaceAll('_',' ')}</strong><span>{formatDateTime(row.created_at)}</span></div></div>)}</div>:<div className="inline-empty"><Activity size={28}/><strong>Nenhuma ação administrativa recente</strong><span>Alterações Master auditadas aparecerão aqui.</span></div>}</aside>
     </div>
+    <div className="security-note master-security-note"><ShieldCheck size={18}/><span>Tokens, App Secrets, chaves privadas e service-role permanecem em armazenamento seguro. A Área Master trabalha apenas com estado, configuração pública e ações autorizadas.</span></div>
   </section>
 }
