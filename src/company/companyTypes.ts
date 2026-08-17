@@ -26,6 +26,11 @@ export type CompanySettings = {
   monitor_tasks: boolean
   default_reminder_minutes: number
   ai_mode: 'observe'
+  notifications_enabled: boolean
+  daily_summary_enabled: boolean
+  daily_summary_time: string
+  notify_overdue: boolean
+  notify_new_suggestions: boolean
 }
 
 export type CompanyMember = {
