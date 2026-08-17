@@ -143,6 +143,20 @@ export function AgendaPage() {
     else await load()
   }
 
+  async function moveToTomorrow(item: Appointment) {
+    if (!currentCompany) return
+    const start = new Date(item.starts_at)
+    const end = item.ends_at ? new Date(item.ends_at) : null
+    const duration = end && !Number.isNaN(end.getTime()) ? end.getTime() - start.getTime() : null
+    const tomorrow = new Date(start)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const payload: { starts_at: string; ends_at?: string | null; status: string } = { starts_at: tomorrow.toISOString(), status: 'scheduled' }
+    if (duration != null) payload.ends_at = new Date(tomorrow.getTime() + duration).toISOString()
+    const { error: err } = await supabase.from('appointments').update(payload).eq('id', item.id).eq('company_id', currentCompany.id)
+    if (err) setError(err.message)
+    else await load()
+  }
+
   async function remove(item: Appointment) {
     if (!currentCompany || !confirm('Excluir este compromisso definitivamente?')) return
     const { error: err } = await supabase.from('appointments').delete().eq('id', item.id).eq('company_id', currentCompany.id)
@@ -179,7 +193,7 @@ export function AgendaPage() {
           </div>
           <div className="row-actions">
             <button className="secondary-button" onClick={() => openEdit(item)}>{item.status === 'scheduled' ? 'Editar / reagendar' : <><RotateCcw size={15}/>Reabrir</>}</button>
-            {item.status === 'scheduled' && <><button className="secondary-button quick-success" onClick={() => void setStatus(item,'completed')}><Check size={16}/>Concluir</button><button className="secondary-button" onClick={() => void setStatus(item,'cancelled')}><X size={16}/>Cancelar</button></>}
+            {item.status === 'scheduled' && <><button className="secondary-button" onClick={() => void moveToTomorrow(item)}><Clock3 size={15}/>Amanhã</button><button className="secondary-button quick-success" onClick={() => void setStatus(item,'completed')}><Check size={16}/>Concluir</button><button className="secondary-button" onClick={() => void setStatus(item,'cancelled')}><X size={16}/>Cancelar</button></>}
             <button className="icon-button small danger" onClick={() => void remove(item)} title="Excluir"><Trash2 size={16}/></button>
           </div>
         </article>)}

@@ -80,6 +80,23 @@ export function DashboardPage() {
     setMessage('')
   }
 
+  async function completeAppointment(id: string) {
+    if (!currentCompany) return
+    setError(''); setMessage('')
+    const { error: err } = await supabase.from('appointments').update({ status: 'completed' }).eq('id', id).eq('company_id', currentCompany.id)
+    if (err) setError(err.message)
+    else { setMessage('Compromisso concluído.'); await load() }
+  }
+
+  async function completePending(kind: 'task' | 'work', id: string) {
+    if (!currentCompany) return
+    setError(''); setMessage('')
+    const table = kind === 'task' ? 'tasks' : 'work_items'
+    const { error: err } = await supabase.from(table).update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', id).eq('company_id', currentCompany.id)
+    if (err) setError(err.message)
+    else { setMessage(kind === 'task' ? 'Tarefa concluída.' : 'Trabalho concluído.'); await load() }
+  }
+
   async function saveQuick(event: FormEvent) {
     event.preventDefault()
     if (!currentCompany || !quickKind || !quickTitle.trim()) return
@@ -171,7 +188,7 @@ export function DashboardPage() {
     <div className="dashboard-columns">
       <div className="panel-card">
         <div className="panel-head"><div><span className="eyebrow">HOJE</span><h2>Próximos compromissos</h2></div><Link to="/agenda">Ver agenda</Link></div>
-        {appointments.length ? <div className="compact-list">{appointments.slice(0,5).map((item)=><div className="compact-row" key={item.id}><div className="list-icon"><CalendarDays size={17}/></div><div className="grow"><strong>{item.title}</strong><span>{formatDateTime(item.starts_at)}{item.address ? ` · ${item.address}` : ''}</span></div><span className="mini-status">{item.kind === 'visit' ? 'Visita' : 'Agenda'}</span></div>)}</div> : <Empty icon={<CalendarDays size={22}/>} title="Nenhum compromisso hoje" text="Crie um compromisso acima quando precisar."/>}
+        {appointments.length ? <div className="compact-list">{appointments.slice(0,5).map((item)=><div className="compact-row dashboard-action-row" key={item.id}><div className="list-icon"><CalendarDays size={17}/></div><div className="grow"><strong>{item.title}</strong><span>{formatDateTime(item.starts_at)}{item.address ? ` · ${item.address}` : ''}</span></div><span className="mini-status">{item.kind === 'visit' ? 'Visita' : 'Agenda'}</span><button className="compact-action-button" onClick={()=>void completeAppointment(item.id)} title="Concluir compromisso"><CheckCircle2 size={15}/>Concluir</button></div>)}</div> : <Empty icon={<CalendarDays size={22}/>} title="Nenhum compromisso hoje" text="Crie um compromisso acima quando precisar."/>}
       </div>
 
       <div className="panel-card">
@@ -182,7 +199,7 @@ export function DashboardPage() {
 
     <div className="panel-card dashboard-bottom">
       <div className="panel-head"><div><span className="eyebrow">PENDÊNCIAS</span><h2>O que ainda está aberto</h2></div><Link to="/trabalho">Organizar trabalho</Link></div>
-      {(tasks.length || workItems.length) ? <div className="compact-list">{[...tasks.map((item)=>({id:item.id,title:item.title,due:item.due_at,kind:'Tarefa'})),...workItems.map((item)=>({id:item.id,title:item.title,due:item.due_at,kind:'Trabalho'}))].sort((a,b)=>(a.due?new Date(a.due).getTime():Infinity)-(b.due?new Date(b.due).getTime():Infinity)).slice(0,6).map((item)=><div className="compact-row" key={`${item.kind}-${item.id}`}><div className={`list-icon ${isOverdue(item.due)?'danger':''}`}>{isOverdue(item.due)?<Clock3 size={17}/>:<CheckCircle2 size={17}/>}</div><div className="grow"><strong>{item.title}</strong><span>{formatDateTime(item.due)}</span></div><span className="mini-status">{item.kind}</span></div>)}</div> : <Empty icon={<CheckCircle2 size={22}/>} title="Sem pendências" text="Você não tem tarefas ou trabalhos em aberto."/>}
+      {(tasks.length || workItems.length) ? <div className="compact-list">{[...tasks.map((item)=>({id:item.id,title:item.title,due:item.due_at,kind:'Tarefa',source:'task' as const})),...workItems.map((item)=>({id:item.id,title:item.title,due:item.due_at,kind:'Trabalho',source:'work' as const}))].sort((a,b)=>(a.due?new Date(a.due).getTime():Infinity)-(b.due?new Date(b.due).getTime():Infinity)).slice(0,6).map((item)=><div className="compact-row dashboard-action-row" key={`${item.kind}-${item.id}`}><div className={`list-icon ${isOverdue(item.due)?'danger':''}`}>{isOverdue(item.due)?<Clock3 size={17}/>:<CheckCircle2 size={17}/>}</div><div className="grow"><strong>{item.title}</strong><span>{formatDateTime(item.due)}</span></div><span className="mini-status">{item.kind}</span><button className="compact-action-button" onClick={()=>void completePending(item.source,item.id)}><CheckCircle2 size={15}/>Concluir</button></div>)}</div> : <Empty icon={<CheckCircle2 size={22}/>} title="Sem pendências" text="Você não tem tarefas ou trabalhos em aberto."/>}
     </div>
 
     {quickKind && <div className="modal-backdrop" onClick={()=>setQuickKind(null)}><form className="modal-card quick-create-modal" onClick={e=>e.stopPropagation()} onSubmit={saveQuick}>

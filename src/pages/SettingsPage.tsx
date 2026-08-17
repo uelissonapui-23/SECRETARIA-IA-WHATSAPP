@@ -44,6 +44,7 @@ export function SettingsPage() {
   const [accountMessage, setAccountMessage] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [error, setError] = useState('')
+  const [section, setSection] = useState<'company'|'secretary'|'team'|'account'|'security'>('company')
 
   useEffect(() => {
     if (!user) return
@@ -117,44 +118,51 @@ export function SettingsPage() {
 
   return <section>
     <div className="settings-hero">
-      <div><span className="eyebrow">PERSONALIZE SUA ROTINA</span><h1>Configurações</h1><p>Deixe a Secretária com a cara da sua empresa e escolha como ela deve chamar sua atenção.</p></div>
+      <div><span className="eyebrow">CONFIGURAÇÕES</span><h1>Ajuste só o que precisar</h1><p>As opções foram separadas por assunto para ficar simples de encontrar e usar.</p></div>
       <div className="settings-hero-orb"><Sparkles size={28}/></div>
     </div>
     {error&&<div className="form-error page-message">{error}</div>}
-    <div className="settings-layout settings-layout-rich">
-      <div className="settings-column">
-        <form className="settings-card colorful-card company-card" onSubmit={saveCompany}>
-          <div className="settings-card-title"><span className="settings-icon blue"><Building2 size={20}/></span><div><h2>Empresa</h2><p>Informações principais e horário de funcionamento.</p></div></div>
-          <div className="form-stack"><label><span>Nome</span><input disabled={!canEdit} required value={name} onChange={(e)=>setName(e.target.value)}/></label><label><span>Atividade principal</span><input disabled={!canEdit} value={businessType} onChange={(e)=>setBusinessType(e.target.value)}/></label><div className="form-grid three"><label><span>Telefone</span><input disabled={!canEdit} value={phone} onChange={(e)=>setPhone(e.target.value)}/></label><label><span>Cidade</span><input disabled={!canEdit} value={city} onChange={(e)=>setCity(e.target.value)}/></label><label><span>UF</span><input disabled={!canEdit} maxLength={2} value={state} onChange={(e)=>setState(e.target.value)}/></label></div>
-            <div className="field-group"><span className="field-title">Dias de atendimento</span><div className="day-picker">{days.map((day)=><button disabled={!canEdit} type="button" key={day.v} className={workingDays.includes(day.v)?'day-chip active':'day-chip'} onClick={()=>setWorkingDays((current)=>current.includes(day.v)?current.filter((v)=>v!==day.v):[...current,day.v])}>{day.l}</button>)}</div></div><div className="form-grid two"><label><span>Começa às</span><input disabled={!canEdit} type="time" value={start} onChange={(e)=>setStart(e.target.value)}/></label><label><span>Termina às</span><input disabled={!canEdit} type="time" value={end} onChange={(e)=>setEnd(e.target.value)}/></label></div>
-          </div>
-        </form>
 
-        <form className="settings-card colorful-card secretary-pref-card" onSubmit={saveCompany}>
-          <div className="settings-card-title"><span className="settings-icon mint"><Sparkles size={20}/></span><div><h2>Preferências da Secretária</h2><p>Escolha o que merece observação e quando receber um resumo.</p></div></div>
-          <div className="field-group"><span className="field-title">A Secretária deve observar</span><div className="monitor-grid compact">{monitorOptions.map(([key,label])=><label className="monitor-option" key={key}><input disabled={!canEdit} type="checkbox" checked={monitors[key]} onChange={(e)=>setMonitors((current)=>({...current,[key]:e.target.checked}))}/><span><strong>{label}</strong></span></label>)}</div></div>
-          <div className="preference-grid">
-            <label className="preference-tile coral"><input disabled={!canEdit} type="checkbox" checked={notificationsEnabled} onChange={(e)=>setNotificationsEnabled(e.target.checked)}/><span className="preference-icon"><BellRing size={19}/></span><span><strong>Notificações</strong><small>Avisos dentro do aplicativo.</small></span></label>
-            <label className="preference-tile yellow"><input disabled={!canEdit} type="checkbox" checked={dailySummaryEnabled} onChange={(e)=>setDailySummaryEnabled(e.target.checked)}/><span className="preference-icon"><Clock3 size={19}/></span><span><strong>Resumo diário</strong><small>Uma visão rápida para começar o dia.</small></span></label>
-            <label className="preference-tile violet"><input disabled={!canEdit} type="checkbox" checked={notifyOverdue} onChange={(e)=>setNotifyOverdue(e.target.checked)}/><span><strong>Lembrar atrasados</strong><small>Destacar prazos vencidos.</small></span></label>
-            <label className="preference-tile blue"><input disabled={!canEdit} type="checkbox" checked={notifyNewSuggestions} onChange={(e)=>setNotifyNewSuggestions(e.target.checked)}/><span><strong>Novas sugestões</strong><small>Avisar quando a IA encontrar algo.</small></span></label>
-          </div>
-          {dailySummaryEnabled&&<label className="summary-time"><span>Horário do resumo diário</span><input disabled={!canEdit} type="time" value={dailySummaryTime} onChange={(e)=>setDailySummaryTime(e.target.value)}/></label>}
-          {message&&<div className="form-success">{message}</div>}{canEdit&&<button className="primary-button vibrant" disabled={busy}>{busy?'Salvando...':'Salvar preferências'}</button>}
-        </form>
-      </div>
+    <nav className="settings-section-tabs" aria-label="Áreas das configurações">
+      <button className={section==='company'?'active':''} onClick={()=>setSection('company')}><Building2 size={17}/><span>Empresa</span></button>
+      <button className={section==='secretary'?'active':''} onClick={()=>setSection('secretary')}><Sparkles size={17}/><span>Secretária</span></button>
+      <button className={section==='team'?'active':''} onClick={()=>setSection('team')}><UsersRound size={17}/><span>Equipe</span></button>
+      <button className={section==='account'?'active':''} onClick={()=>setSection('account')}><UserRound size={17}/><span>Minha conta</span></button>
+      <button className={section==='security'?'active':''} onClick={()=>setSection('security')}><ShieldCheck size={17}/><span>Segurança</span></button>
+    </nav>
 
-      <div className="settings-column">
-        <div className="settings-card colorful-card team-card">
-          <div className="settings-card-title"><span className="settings-icon violet"><UsersRound size={20}/></span><div><h2>Equipe</h2><p>Quem participa desta empresa e qual é o nível de acesso.</p></div></div>
-          <div className="team-list">{team.map((member)=><div className="team-row" key={member.user_id}><span className="avatar-bubble">{member.display_name.slice(0,1).toUpperCase()}</span><div><strong>{member.display_name}</strong><small>{roleLabel(member.role)}</small></div><span className={`role-chip ${member.role}`}>{roleLabel(member.role)}</span></div>)}{!team.length&&<div className="inline-empty compact"><UsersRound size={20}/><div><strong>Equipe ainda enxuta</strong><span>Os membros aparecerão aqui.</span></div></div>}</div>
-          <div className="team-note"><ShieldCheck size={17}/><span>Somente proprietário e administradores podem alterar dados da empresa.</span></div>
+    <div className="settings-single-column">
+      {section==='company'&&<form className="settings-card colorful-card company-card" onSubmit={saveCompany}>
+        <div className="settings-card-title"><span className="settings-icon blue"><Building2 size={20}/></span><div><h2>Dados da empresa</h2><p>Nome, atividade, localização e horários de atendimento.</p></div></div>
+        <div className="form-stack"><label><span>Nome</span><input disabled={!canEdit} required value={name} onChange={(e)=>setName(e.target.value)}/></label><label><span>Atividade principal</span><input disabled={!canEdit} value={businessType} onChange={(e)=>setBusinessType(e.target.value)}/></label><div className="form-grid three"><label><span>Telefone</span><input disabled={!canEdit} value={phone} onChange={(e)=>setPhone(e.target.value)}/></label><label><span>Cidade</span><input disabled={!canEdit} value={city} onChange={(e)=>setCity(e.target.value)}/></label><label><span>UF</span><input disabled={!canEdit} maxLength={2} value={state} onChange={(e)=>setState(e.target.value)}/></label></div>
+          <div className="field-group"><span className="field-title">Dias de atendimento</span><div className="day-picker">{days.map((day)=><button disabled={!canEdit} type="button" key={day.v} className={workingDays.includes(day.v)?'day-chip active':'day-chip'} onClick={()=>setWorkingDays((current)=>current.includes(day.v)?current.filter((v)=>v!==day.v):[...current,day.v])}>{day.l}</button>)}</div></div><div className="form-grid two"><label><span>Começa às</span><input disabled={!canEdit} type="time" value={start} onChange={(e)=>setStart(e.target.value)}/></label><label><span>Termina às</span><input disabled={!canEdit} type="time" value={end} onChange={(e)=>setEnd(e.target.value)}/></label></div>
         </div>
+        {message&&<div className="form-success">{message}</div>}{canEdit&&<button className="primary-button vibrant" disabled={busy}>{busy?'Salvando...':'Salvar empresa'}</button>}
+      </form>}
 
-        <form className="settings-card colorful-card account-card" onSubmit={saveProfile}><div className="settings-card-title"><span className="settings-icon coral"><UserRound size={20}/></span><div><h2>Sua conta</h2><p>Dados pessoais usados dentro do aplicativo.</p></div></div><div className="form-stack"><label><span>Nome</span><input value={displayName} onChange={(e)=>setDisplayName(e.target.value)} /></label><label><span>Telefone</span><input value={profilePhone} onChange={(e)=>setProfilePhone(e.target.value)} /></label><dl className="info-list"><div><dt>E-mail</dt><dd>{user?.email}</dd></div><div><dt>Perfil na empresa</dt><dd>{currentMembership ? roleLabel(currentMembership.role) : '—'}</dd></div></dl>{accountMessage&&<div className="form-success">{accountMessage}</div>}<button className="secondary-button" disabled={accountBusy}>{accountBusy?'Salvando...':'Salvar meus dados'}</button></div></form>
-        <form className="settings-card colorful-card compact" onSubmit={changePassword}><h2>Segurança</h2><div className="form-stack"><label><span>Nova senha</span><input type="password" minLength={8} value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} autoComplete="new-password" /></label><label><span>Confirmar senha</span><input type="password" minLength={8} value={confirmPassword} onChange={(e)=>setConfirmPassword(e.target.value)} autoComplete="new-password" /></label>{passwordMessage&&<div className="form-success">{passwordMessage}</div>}<button className="secondary-button" disabled={passwordBusy || !newPassword}>{passwordBusy?'Alterando...':'Alterar senha'}</button></div></form>
-        <div className="privacy-box rich"><strong>Modo da V1: observação</strong><span>A Secretária organiza e sugere, mas não responde clientes automaticamente.</span></div>
-      </div>
+      {section==='secretary'&&<form className="settings-card colorful-card secretary-pref-card" onSubmit={saveCompany}>
+        <div className="settings-card-title"><span className="settings-icon mint"><Sparkles size={20}/></span><div><h2>Como a Secretária deve trabalhar</h2><p>Escolha o que ela observa e quais avisos são úteis para você.</p></div></div>
+        <div className="field-group"><span className="field-title">Observar nas conversas</span><div className="monitor-grid compact">{monitorOptions.map(([key,label])=><label className="monitor-option" key={key}><input disabled={!canEdit} type="checkbox" checked={monitors[key]} onChange={(e)=>setMonitors((current)=>({...current,[key]:e.target.checked}))}/><span><strong>{label}</strong></span></label>)}</div></div>
+        <div className="preference-grid">
+          <label className="preference-tile coral"><input disabled={!canEdit} type="checkbox" checked={notificationsEnabled} onChange={(e)=>setNotificationsEnabled(e.target.checked)}/><span className="preference-icon"><BellRing size={19}/></span><span><strong>Notificações</strong><small>Avisos importantes dentro do aplicativo.</small></span></label>
+          <label className="preference-tile yellow"><input disabled={!canEdit} type="checkbox" checked={dailySummaryEnabled} onChange={(e)=>setDailySummaryEnabled(e.target.checked)}/><span className="preference-icon"><Clock3 size={19}/></span><span><strong>Resumo diário</strong><small>Uma visão rápida para começar o dia.</small></span></label>
+          <label className="preference-tile violet"><input disabled={!canEdit} type="checkbox" checked={notifyOverdue} onChange={(e)=>setNotifyOverdue(e.target.checked)}/><span><strong>Lembrar atrasados</strong><small>Destacar o que passou do prazo.</small></span></label>
+          <label className="preference-tile blue"><input disabled={!canEdit} type="checkbox" checked={notifyNewSuggestions} onChange={(e)=>setNotifyNewSuggestions(e.target.checked)}/><span><strong>Novas sugestões</strong><small>Avisar quando surgir algo para confirmar.</small></span></label>
+        </div>
+        {dailySummaryEnabled&&<label className="summary-time"><span>Horário do resumo diário</span><input disabled={!canEdit} type="time" value={dailySummaryTime} onChange={(e)=>setDailySummaryTime(e.target.value)}/></label>}
+        {message&&<div className="form-success">{message}</div>}{canEdit&&<button className="primary-button vibrant" disabled={busy}>{busy?'Salvando...':'Salvar preferências'}</button>}
+        <div className="privacy-box rich"><strong>Modo de observação</strong><span>A Secretária organiza e sugere. Ela não responde clientes automaticamente.</span></div>
+      </form>}
+
+      {section==='team'&&<div className="settings-card colorful-card team-card">
+        <div className="settings-card-title"><span className="settings-icon violet"><UsersRound size={20}/></span><div><h2>Equipe</h2><p>Veja quem participa da empresa e o nível de acesso de cada pessoa.</p></div></div>
+        <div className="team-list">{team.map((member)=><div className="team-row" key={member.user_id}><span className="avatar-bubble">{member.display_name.slice(0,1).toUpperCase()}</span><div><strong>{member.display_name}</strong><small>{roleLabel(member.role)}</small></div><span className={`role-chip ${member.role}`}>{roleLabel(member.role)}</span></div>)}{!team.length&&<div className="inline-empty compact"><UsersRound size={20}/><div><strong>Nenhum outro membro</strong><span>Quando houver equipe, as pessoas aparecerão aqui.</span></div></div>}</div>
+        <div className="team-note"><ShieldCheck size={17}/><span>Proprietário e administradores podem alterar os dados da empresa.</span></div>
+      </div>}
+
+      {section==='account'&&<form className="settings-card colorful-card account-card" onSubmit={saveProfile}><div className="settings-card-title"><span className="settings-icon coral"><UserRound size={20}/></span><div><h2>Minha conta</h2><p>Seus dados usados dentro do aplicativo.</p></div></div><div className="form-stack"><label><span>Nome</span><input value={displayName} onChange={(e)=>setDisplayName(e.target.value)} /></label><label><span>Telefone</span><input value={profilePhone} onChange={(e)=>setProfilePhone(e.target.value)} /></label><dl className="info-list"><div><dt>E-mail</dt><dd>{user?.email}</dd></div><div><dt>Perfil na empresa</dt><dd>{currentMembership ? roleLabel(currentMembership.role) : '—'}</dd></div></dl>{accountMessage&&<div className="form-success">{accountMessage}</div>}<button className="secondary-button" disabled={accountBusy}>{accountBusy?'Salvando...':'Salvar meus dados'}</button></div></form>}
+
+      {section==='security'&&<form className="settings-card colorful-card compact" onSubmit={changePassword}><div className="settings-card-title"><span className="settings-icon blue"><ShieldCheck size={20}/></span><div><h2>Segurança</h2><p>Altere sua senha quando precisar.</p></div></div><div className="form-stack"><label><span>Nova senha</span><input type="password" minLength={8} value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} autoComplete="new-password" /></label><label><span>Confirmar senha</span><input type="password" minLength={8} value={confirmPassword} onChange={(e)=>setConfirmPassword(e.target.value)} autoComplete="new-password" /></label>{passwordMessage&&<div className="form-success">{passwordMessage}</div>}<button className="secondary-button" disabled={passwordBusy || !newPassword}>{passwordBusy?'Alterando...':'Alterar senha'}</button></div></form>}
     </div>
   </section>
 
