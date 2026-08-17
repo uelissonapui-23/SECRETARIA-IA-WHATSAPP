@@ -1,0 +1,24 @@
+export type SuggestionType='appointment'|'task'|'order'|'quote'|'payment_promise'|'follow_up'|'awaiting_reply'|'deadline'
+export type Candidate={type:SuggestionType;title:string;summary:string;reason:string;confidence:number;extracted_data:Record<string,unknown>}
+export type AnalyzeOptions={minConfidence:number;allowMultiple:boolean;monitors?:Record<string,boolean>}
+
+const monitorKey:Record<SuggestionType,string>={appointment:'monitor_appointments',task:'monitor_tasks',order:'monitor_orders',quote:'monitor_quotes',payment_promise:'monitor_payment_promises',follow_up:'monitor_follow_ups',awaiting_reply:'monitor_awaiting_reply',deadline:'monitor_deadlines'}
+const money=(text:string)=>{const m=text.match(/(?:r\$\s*)(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:[.,]\d{2})?)|(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:[.,]\d{2})?)\s*(?:reais|real)\b/i);const raw=m?.[1]??m?.[2];if(!raw)return undefined;const n=Number(raw.replace(/\./g,'').replace(',','.'));return Number.isFinite(n)?n:undefined}
+const time=(text:string)=>{const m=text.match(/\b(?:às?\s*)?(\d{1,2})(?::(\d{2}))?\s*h(?:oras?)?\b|\b(\d{1,2}):(\d{2})\b/i);if(!m)return undefined;const h=Number(m[1]??m[3]);const min=Number(m[2]??m[4]??0);return h<24&&min<60?`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`:undefined}
+const when=(text:string)=>text.match(/\b(hoje|amanh[ãa]|depois de amanh[ãa]|segunda(?:-feira)?|terça(?:-feira)?|ter[cç]a(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?|s[áa]bado|domingo|semana que vem|m[eê]s que vem)\b/i)?.[1]
+function enabled(type:SuggestionType,o:AnalyzeOptions){return o.monitors?.[monitorKey[type]]!==false}
+function add(list:Candidate[],candidate:Candidate,o:AnalyzeOptions){if(enabled(candidate.type,o)&&candidate.confidence>=o.minConfidence&&!list.some(x=>x.type===candidate.type))list.push(candidate)}
+
+export function analyzeText(text:string,context:string,memory:string,options:AnalyzeOptions):Candidate[]{
+  const merged=`${context}\n${text}`.trim();const low=merged.toLocaleLowerCase('pt-BR');const out:Candidate[]=[];const amount=money(text);const timeText=time(text);const whenText=when(text)
+  if(/\b(or[cç]amento|quanto fica|quanto custa|pre[cç]o|valor do servi[cç]o|cotação|cotacao)\b/i.test(low)) add(out,{type:'quote',title:'Orçamento para acompanhar',summary:text,reason:'A conversa contém pedido ou negociação de preço.',confidence:.84,extracted_data:{amount}},options)
+  if(/\b(pedido|fechado|pode fazer|pode produzir|vamos fazer|encomenda|quero \d+|separa pra mim)\b/i.test(low)) add(out,{type:'order',title:'Possível pedido confirmado',summary:text,reason:'A conversa indica intenção de executar ou produzir algo.',confidence:.81,extracted_data:{amount}},options)
+  if(/\b(pix|transfer[eê]ncia|pagamento|vou pagar|pago hoje|fa[cç]o o pix|deposito|dep[óo]sito)\b/i.test(low)) add(out,{type:'payment_promise',title:'Pagamento para conferir',summary:text,reason:'Foi identificada uma promessa ou referência operacional de pagamento.',confidence:.86,extracted_data:{amount,promised_for:whenText}},options)
+  if((whenText&&timeText)||/\b(agend|marcad[oa]|hor[aá]rio|visita|pode vir|te espero)\b/i.test(low)) add(out,{type:'appointment',title:'Possível compromisso',summary:text,reason:'A mensagem combina data/horário ou linguagem de agendamento.',confidence:whenText&&timeText?.88:.76,extracted_data:{when_text:whenText,time_text:timeText}},options)
+  if(/\b(me chama|me liga|me lembra|retorna|retorno|fala comigo|procura de novo|semana que vem|m[eê]s que vem)\b/i.test(low)) add(out,{type:'follow_up',title:'Retorno futuro',summary:text,reason:'A conversa pede acompanhamento em outro momento.',confidence:.82,extracted_data:{when_text:whenText}},options)
+  if(/\b(at[eé]|prazo|entregar|entrega|vence|vencimento|data limite|preciso para|tem que ficar pronto)\b/i.test(low)&&whenText) add(out,{type:'deadline',title:'Prazo mencionado',summary:text,reason:'Há linguagem de prazo acompanhada de referência temporal.',confidence:.79,extracted_data:{when_text:whenText,time_text:timeText}},options)
+  if(/\b(me manda|preciso que|n[aã]o esque[cç]a|lembra de|faz pra mim|confere|verifica)\b/i.test(low)) add(out,{type:'task',title:'Tarefa identificada',summary:text,reason:'A mensagem contém uma solicitação objetiva que pode virar tarefa.',confidence:.74,extracted_data:{when_text:whenText}},options)
+  if(/\b(aguardo|fico no aguardo|me avisa|quando puder|estou esperando|me responde)\b/i.test(low)) add(out,{type:'awaiting_reply',title:'Cliente aguardando resposta',summary:text,reason:'O cliente sinaliza que está aguardando uma resposta ou decisão.',confidence:.8,extracted_data:{}},options)
+  if(memory&&/urgente|prioridade|sempre priorizar/i.test(memory)) for(const item of out)item.confidence=Math.min(.99,item.confidence+.03)
+  return options.allowMultiple?out:out.slice(0,1)
+}

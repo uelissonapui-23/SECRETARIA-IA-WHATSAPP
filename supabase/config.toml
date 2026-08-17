@@ -31,3 +31,6 @@ verify_jwt = false
 
 [functions.whatsapp-disconnect]
 verify_jwt = false
+
+[functions.analysis-lab]
+verify_jwt = false
