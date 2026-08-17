@@ -1,0 +1,4 @@
+export type PromotionInput={pilotRuns:number;requiredRuns:number;score:number;minScore:number;regressions:number;maxRegressions:number;severe:boolean}
+export function isSevereRegression(input:{regressions:number;severeCount:number;scoreDelta:number;severeDrop:number}){return input.regressions>=input.severeCount||input.scoreDelta<=-Math.abs(input.severeDrop)}
+export function isPromotionEligible(input:PromotionInput){return input.pilotRuns>=input.requiredRuns&&input.score>=input.minScore&&input.regressions<=input.maxRegressions&&!input.severe}
+export function evolutionStatusLabel(input:{state:'locked'|'pilot'|'enabled';eligible:boolean;severe:boolean}){if(input.severe)return'Regressão grave';if(input.state==='pilot'&&input.eligible)return'Pronta para promover';return input.state==='enabled'?'Liberada':input.state==='pilot'?'Em piloto':'Bloqueada'}
