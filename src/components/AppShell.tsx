@@ -16,7 +16,7 @@ const items = [
 
 export function AppShell() {
   const { signOut } = useAuth()
-  const { currentCompany } = useCompany()
+  const { currentCompany, companies, selectCompany } = useCompany()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
@@ -35,7 +35,7 @@ export function AppShell() {
         <button type="button" className="sidebar-logout" onClick={logout} disabled={busy}><LogOut size={18}/><span>{busy?'Saindo...':'Sair'}</span></button>
       </aside>
       <main className="main-area">
-        <header className="topbar"><div><strong>{currentCompany?.name ?? 'Minha empresa'}</strong><span>Secretária em modo observação</span></div><button className="icon-button" aria-label="Notificações"><Bell size={20}/></button></header>
+        <header className="topbar"><div className="topbar-company">{companies.length > 1 ? <select value={currentCompany?.id ?? ''} onChange={(event)=>void selectCompany(event.target.value)}>{companies.map((company)=><option key={company.id} value={company.id}>{company.name}</option>)}</select> : <strong>{currentCompany?.name ?? 'Minha empresa'}</strong>}<span>Secretária em modo observação</span></div><button className="icon-button" aria-label="Notificações" title="Central de notificações preparada para o próximo módulo"><Bell size={20}/></button></header>
         <div className="content"><Outlet /></div>
       </main>
 
