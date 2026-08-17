@@ -27,19 +27,9 @@ async function canManageCompany(authHeader: string, companyId: string) {
   const client = authenticatedClient(authHeader)
   const jwt = authHeader.replace(/^Bearer\s+/i, '')
   const { data: { user }, error: userError } = await client.auth.getUser(jwt)
-  if (userError || !user) {
-    return { allowed: false, role: null as string | null, user: null, error: 'not_authenticated' }
-  }
-
-  // Usa a função canônica do banco com auth.uid() do JWT do usuário.
-  // Assim frontend, RLS e Edge Function obedecem à MESMA regra de papel.
-  const { data: roleValue, error: roleError } = await client
-    .rpc('company_role_for', { target_company_id: companyId })
-
-  if (roleError) {
-    return { allowed: false, role: null as string | null, user, error: roleError.message }
-  }
-
+  if (userError || !user) return { allowed: false, role: null as string | null, user: null, error: 'not_authenticated' }
+  const { data: roleValue, error: roleError } = await client.rpc('company_role_for', { target_company_id: companyId })
+  if (roleError) return { allowed: false, role: null as string | null, user, error: roleError.message }
   const role = typeof roleValue === 'string' ? roleValue : null
   return { allowed: role === 'owner' || role === 'admin', role, user, error: null as string | null }
 }
@@ -51,8 +41,21 @@ async function graph(path: string, token: string, init?: RequestInit) {
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...(init?.headers ?? {}) },
   })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data?.error?.message ?? `Meta Graph API ${response.status}`)
+  if (!response.ok) {
+    const error = new Error(data?.error?.message ?? `Meta Graph API ${response.status}`) as Error & { metaCode?: number; metaSubcode?: number; httpStatus?: number }
+    error.metaCode = data?.error?.code
+    error.metaSubcode = data?.error?.error_subcode
+    error.httpStatus = response.status
+    throw error
+  }
   return data
+}
+
+async function startSync(phoneNumberId: string, accessToken: string, syncType: 'smb_app_state_sync' | 'history') {
+  return graph(`${phoneNumberId}/smb_app_data`, accessToken, {
+    method: 'POST',
+    body: JSON.stringify({ messaging_product: 'whatsapp', sync_type: syncType }),
+  })
 }
 
 Deno.serve(async (req) => {
@@ -62,6 +65,7 @@ Deno.serve(async (req) => {
     console.error(`[whatsapp-connect:${traceId}] ${step}`, { ...details, message })
     return json({ error: message, step, trace_id: traceId }, status)
   }
+
   log('request-received', { method: req.method })
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
@@ -70,97 +74,90 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('authorization') ?? ''
     if (!/^Bearer\s+\S+/i.test(authHeader)) return fail('auth-header', 'not_authenticated', 401)
 
-    const { company_id, code, waba_id, phone_number_id: requestedPhoneNumberId, business_id } = await req.json()
-    if (!company_id || !code) return fail('request-validation', 'missing_connection_data', 400, { has_company_id: Boolean(company_id), has_code: Boolean(code) })
+    const { company_id, code, waba_id, phone_number_id: requestedPhoneNumberId, business_id, signup_event } = await req.json()
+    if (!company_id || !code) return fail('request-validation', 'missing_connection_data', 400)
+    if (signup_event !== 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+      return fail(
+        'coexistence-required',
+        'A conexão foi interrompida porque a Meta não confirmou o modo de coexistência com o WhatsApp Business. Nenhum número foi migrado ou vinculado por este fluxo.',
+        409,
+        { signup_event: typeof signup_event === 'string' ? signup_event : null },
+      )
+    }
 
-    log('request-validated', { company_id, has_waba_id: Boolean(waba_id), has_phone_number_id: Boolean(requestedPhoneNumberId), has_business_id: Boolean(business_id) })
+    log('request-validated', { company_id, coexistence_event: true, has_waba_id: Boolean(waba_id), has_phone_number_id: Boolean(requestedPhoneNumberId) })
 
     const permission = await canManageCompany(authHeader, company_id)
     log('membership-check', { role: permission.role, allowed: permission.allowed, auth_error: permission.error })
-    if (!permission.user) return fail('auth', 'not_authenticated', 401, { auth_error: permission.error })
-    if (!permission.allowed) return fail('membership', 'not_company_admin', 403, { role: permission.role, permission_error: permission.error })
+    if (!permission.user) return fail('auth', 'not_authenticated', 401)
+    if (!permission.allowed) return fail('membership', 'not_company_admin', 403, { role: permission.role })
     const user = permission.user
-    log('membership-ok', { role: permission.role })
-
-    // O service role só entra DEPOIS da autenticação e autorização do usuário.
     const service = serviceClient()
 
     const appId = Deno.env.get('META_APP_ID') ?? ''
     const appSecret = Deno.env.get('META_APP_SECRET') ?? ''
-    if (!appId || !appSecret) return fail('server-config', 'meta_server_not_configured', 503, { has_app_id: Boolean(appId), has_app_secret: Boolean(appSecret) })
+    if (!appId || !appSecret) return fail('server-config', 'meta_server_not_configured', 503)
 
     const version = Deno.env.get('META_GRAPH_VERSION') ?? 'v26.0'
     const tokenUrl = new URL(`https://graph.facebook.com/${version}/oauth/access_token`)
     tokenUrl.searchParams.set('client_id', appId)
     tokenUrl.searchParams.set('client_secret', appSecret)
     tokenUrl.searchParams.set('code', code)
-    // Embedded Signup via Facebook JavaScript SDK does not use an application
-    // redirect_uri in the authorization-code exchange. Supplying one here can
-    // bind the exchange to a URI different from the SDK popup's internal flow.
+
     log('oauth-exchange-start')
     const tokenResponse = await fetch(tokenUrl)
     const tokenPayload = await tokenResponse.json().catch(() => ({}))
-    if (!tokenResponse.ok || !tokenPayload.access_token) return fail('oauth-exchange', tokenPayload?.error?.message ?? 'Falha ao trocar código da Meta', tokenResponse.status || 502, { meta_status: tokenResponse.status, meta_error_code: tokenPayload?.error?.code ?? null, meta_error_subcode: tokenPayload?.error?.error_subcode ?? null })
-    log('oauth-exchange-ok', { token_type: tokenPayload.token_type ?? null, expires_in: tokenPayload.expires_in ?? null })
+    if (!tokenResponse.ok || !tokenPayload.access_token) {
+      return fail('oauth-exchange', tokenPayload?.error?.message ?? 'Falha ao trocar código da Meta', tokenResponse.status || 502, {
+        meta_status: tokenResponse.status,
+        meta_error_code: tokenPayload?.error?.code ?? null,
+        meta_error_subcode: tokenPayload?.error?.error_subcode ?? null,
+      })
+    }
     const accessToken = tokenPayload.access_token as string
+    log('oauth-exchange-ok')
 
-    // O postMessage WA_EMBEDDED_SIGNUP nem sempre chega ao opener nas versões
-    // atuais do Login for Business. Quando o frontend recebe somente o `code`,
-    // descobrimos a WABA explicitamente autorizada a partir dos granular_scopes
-    // do token, sem confiar em IDs enviados pelo navegador.
     let resolvedWabaId = typeof waba_id === 'string' && waba_id.trim() ? waba_id.trim() : ''
     if (!resolvedWabaId) {
       const debugUrl = new URL(`https://graph.facebook.com/${version}/debug_token`)
       debugUrl.searchParams.set('input_token', accessToken)
       debugUrl.searchParams.set('access_token', `${appId}|${appSecret}`)
-      log('debug-token-start')
       const debugResponse = await fetch(debugUrl)
       const debugPayload = await debugResponse.json().catch(() => ({}))
-      if (!debugResponse.ok) return fail('debug-token', debugPayload?.error?.message ?? 'Não foi possível validar a autorização da Meta', debugResponse.status || 502, { meta_status: debugResponse.status, meta_error_code: debugPayload?.error?.code ?? null })
-
+      if (!debugResponse.ok) return fail('debug-token', debugPayload?.error?.message ?? 'Não foi possível validar a autorização da Meta', debugResponse.status || 502)
       const scopes = Array.isArray(debugPayload?.data?.granular_scopes) ? debugPayload.data.granular_scopes : []
       const targetIds = [...new Set(scopes
         .filter((scope: { scope?: string }) => scope?.scope === 'whatsapp_business_management' || scope?.scope === 'whatsapp_business_messaging')
         .flatMap((scope: { target_ids?: unknown }) => Array.isArray(scope?.target_ids) ? scope.target_ids : [])
         .map((id: unknown) => String(id ?? '').trim())
         .filter(Boolean))]
-
-      log('debug-token-ok', { granular_scope_count: scopes.length, whatsapp_target_count: targetIds.length })
-      if (targetIds.length === 0) return fail('waba-resolution', 'A Meta autorizou o login, mas não informou qual conta do WhatsApp foi concedida. Revise o acesso à Conta do WhatsApp na configuração do Facebook Login for Business.', 409)
-      if (targetIds.length > 1) return fail('waba-resolution', 'A autorização contém mais de uma conta do WhatsApp. Deixe apenas a conta que deseja conectar nesta configuração e tente novamente.', 409, { whatsapp_target_count: targetIds.length })
+      if (targetIds.length !== 1) return fail('waba-resolution', 'Não foi possível identificar de forma única a conta do WhatsApp autorizada pela Meta.', 409, { whatsapp_target_count: targetIds.length })
       resolvedWabaId = targetIds[0]
     }
-    log('waba-resolved', { waba_id: resolvedWabaId })
 
-    log('subscribe-app-start', { waba_id: resolvedWabaId })
     await graph(`${resolvedWabaId}/subscribed_apps`, accessToken, { method: 'POST', body: '{}' })
+    log('subscribe-app-ok')
 
-    log('subscribe-app-ok', { waba_id: resolvedWabaId })
-
-    // Em alguns términos válidos do Embedded Signup v4 (FINISH_ONLY_WABA),
-    // a Meta retorna a WABA sem phone_number_id no postMessage. Nesse caso,
-    // resolvemos o número pelo Graph API depois da troca segura do code.
-    let phoneNumberId = typeof requestedPhoneNumberId === 'string' && requestedPhoneNumberId.trim()
-      ? requestedPhoneNumberId.trim()
-      : ''
-
+    let phoneNumberId = typeof requestedPhoneNumberId === 'string' && requestedPhoneNumberId.trim() ? requestedPhoneNumberId.trim() : ''
     if (!phoneNumberId) {
-      log('phone-resolution-start', { waba_id: resolvedWabaId })
-      const phoneList = await graph(`${resolvedWabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating`, accessToken)
+      const phoneList = await graph(`${resolvedWabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,is_on_biz_app,platform_type`, accessToken)
       const phones = Array.isArray(phoneList?.data) ? phoneList.data : []
-      log('phone-list-ok', { phone_count: phones.length })
-      if (phones.length === 0) return fail('phone-resolution', 'Nenhum número do WhatsApp foi encontrado nesta conta. Conclua a seleção/registro do número na Meta e tente novamente.', 409)
-      if (phones.length > 1) return fail('phone-resolution', 'A conta possui mais de um número. Reabra a conexão e selecione explicitamente o número que deseja vincular.', 409, { phone_count: phones.length })
-      phoneNumberId = String(phones[0].id ?? '')
-      if (!phoneNumberId) return fail('phone-resolution', 'A Meta não retornou a identificação do número selecionado.', 409)
+      const coexistencePhones = phones.filter((item: Record<string, unknown>) => item?.is_on_biz_app === true && item?.platform_type === 'CLOUD_API')
+      if (coexistencePhones.length === 0) return fail('coexistence-phone-resolution', 'A Meta não confirmou nenhum número em coexistência com o WhatsApp Business. Nenhuma conexão foi salva.', 409)
+      if (coexistencePhones.length > 1) return fail('coexistence-phone-resolution', 'Há mais de um número em coexistência nesta conta. Reabra o fluxo e selecione explicitamente o número correto.', 409, { phone_count: coexistencePhones.length })
+      phoneNumberId = String(coexistencePhones[0].id ?? '')
     }
 
-    log('phone-resolved', { phone_number_id: phoneNumberId })
-    const phone = await graph(`${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating`, accessToken)
+    const phone = await graph(`${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating,is_on_biz_app,platform_type`, accessToken)
+    const coexistenceVerified = phone?.is_on_biz_app === true && phone?.platform_type === 'CLOUD_API'
+    if (!coexistenceVerified) {
+      return fail('coexistence-verification', 'A Meta não confirmou que este número continuará ativo no WhatsApp Business. Por segurança, a Secretária não concluiu a conexão.', 409, {
+        is_on_biz_app: phone?.is_on_biz_app ?? null,
+        platform_type: phone?.platform_type ?? null,
+      })
+    }
 
-    log('phone-details-ok', { has_display_phone_number: Boolean(phone.display_phone_number), has_verified_name: Boolean(phone.verified_name) })
     const now = new Date().toISOString()
-    log('database-save-start', { company_id })
     const { data: connection, error: connectionError } = await service.from('whatsapp_connections').upsert({
       company_id,
       waba_id: resolvedWabaId,
@@ -176,35 +173,75 @@ Deno.serve(async (req) => {
       disconnected_by: null,
       connected_by: user.id,
       last_error: null,
-      connection_mode: 'embedded_signup',
+      connection_mode: 'coexistence',
+      coexistence_verified_at: now,
+      coexistence_is_on_biz_app: true,
+      platform_type: 'CLOUD_API',
+      contacts_sync_status: 'pending',
+      history_sync_status: 'pending',
+      history_sync_progress: 0,
+      history_sync_last_error: null,
       updated_at: now,
-    }, { onConflict: 'company_id' }).select('id,company_id,status,display_phone_number,phone_number_name,connected_at,activation_at').single()
+    }, { onConflict: 'company_id' }).select('id,company_id,status,display_phone_number,phone_number_name,connected_at,activation_at,connection_mode,contacts_sync_status,history_sync_status,history_sync_progress').single()
     if (connectionError) return fail('database-upsert', connectionError.message, 500, { code: connectionError.code ?? null })
-    log('database-upsert-ok', { connection_id: connection.id })
 
     const { error: tokenError } = await service.rpc('whatsapp_store_access_token', { target_connection_id: connection.id, access_token: accessToken })
     if (tokenError) return fail('token-store', tokenError.message, 500, { code: tokenError.code ?? null })
-    log('token-store-ok', { connection_id: connection.id })
+
+    const syncWarnings: string[] = []
+
+    try {
+      const contactsSync = await startSync(phoneNumberId, accessToken, 'smb_app_state_sync')
+      await service.from('whatsapp_connections').update({
+        contacts_sync_status: 'requested',
+        contacts_sync_request_id: contactsSync?.request_id ?? null,
+        contacts_sync_requested_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', connection.id)
+      log('contacts-sync-requested', { has_request_id: Boolean(contactsSync?.request_id) })
+    } catch (syncError) {
+      const message = syncError instanceof Error ? syncError.message : 'contacts_sync_failed'
+      syncWarnings.push('Não foi possível iniciar a sincronização de contatos.')
+      await service.from('whatsapp_connections').update({ contacts_sync_status: 'failed', updated_at: new Date().toISOString() }).eq('id', connection.id)
+      console.error(`[whatsapp-connect:${traceId}] contacts-sync`, { message })
+    }
+
+    try {
+      const historySync = await startSync(phoneNumberId, accessToken, 'history')
+      await service.from('whatsapp_connections').update({
+        history_sync_status: 'requested',
+        history_sync_request_id: historySync?.request_id ?? null,
+        history_sync_requested_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', connection.id)
+      log('history-sync-requested', { has_request_id: Boolean(historySync?.request_id) })
+    } catch (syncError) {
+      const message = syncError instanceof Error ? syncError.message : 'history_sync_failed'
+      syncWarnings.push('Não foi possível iniciar a sincronização do histórico. A conexão foi preservada para revisão.')
+      await service.from('whatsapp_connections').update({ history_sync_status: 'failed', history_sync_last_error: message.slice(0, 500), updated_at: new Date().toISOString() }).eq('id', connection.id)
+      console.error(`[whatsapp-connect:${traceId}] history-sync`, { message })
+    }
 
     await service.from('companies').update({ monitoring_started_at: now, updated_at: now }).eq('id', company_id)
-    await service.from('audit_logs').insert({ company_id, actor_user_id: user.id, action: 'whatsapp.connected', entity_type: 'whatsapp_connection', entity_id: connection.id, metadata: { waba_id: resolvedWabaId, phone_number_id: phoneNumberId } })
+    await service.from('audit_logs').insert({
+      company_id,
+      actor_user_id: user.id,
+      action: 'whatsapp.coexistence_connected',
+      entity_type: 'whatsapp_connection',
+      entity_id: connection.id,
+      metadata: { coexistence_verified: true, history_sync_started: !syncWarnings.some((item) => item.includes('histórico')) },
+    })
 
-    log('connection-complete', { connection_id: connection.id })
-    return json({ connection, trace_id: traceId })
+    const { data: refreshed } = await service.from('whatsapp_connections')
+      .select('id,company_id,status,display_phone_number,phone_number_name,connected_at,activation_at,connection_mode,contacts_sync_status,history_sync_status,history_sync_progress')
+      .eq('id', connection.id).single()
+
+    log('connection-complete', { connection_id: connection.id, sync_warning_count: syncWarnings.length })
+    return json({ connection: refreshed ?? connection, sync_warnings: syncWarnings, trace_id: traceId })
   } catch (error) {
     const objectError = error && typeof error === 'object' ? error as Record<string, unknown> : null
-    const message = error instanceof Error
-      ? error.message
-      : typeof objectError?.message === 'string'
-        ? objectError.message
-        : 'connection_failed'
-    console.error(`[whatsapp-connect:${traceId}] unhandled-error`, {
-      message,
-      name: error instanceof Error ? error.name : typeof error,
-      code: typeof objectError?.code === 'string' ? objectError.code : null,
-      details: typeof objectError?.details === 'string' ? objectError.details : null,
-      hint: typeof objectError?.hint === 'string' ? objectError.hint : null,
-    })
+    const message = error instanceof Error ? error.message : typeof objectError?.message === 'string' ? objectError.message : 'connection_failed'
+    console.error(`[whatsapp-connect:${traceId}] unhandled-error`, { message, name: error instanceof Error ? error.name : typeof error })
     return json({ error: message, step: 'unhandled-error', trace_id: traceId }, 500)
   }
 })

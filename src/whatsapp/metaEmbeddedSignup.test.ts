@@ -29,6 +29,22 @@ describe('parseMetaSignupMessage', () => {
     expect(result?.data.phone_number_id).toBe('phone-2')
   })
 
+
+  it('aceita o evento oficial de conclusão da coexistência', () => {
+    const result = parseMetaSignupMessage({
+      origin: 'https://business.facebook.com',
+      data: JSON.stringify({
+        type: 'WA_EMBEDDED_SIGNUP',
+        event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING',
+        version: 3,
+        data: { waba_id: 'waba-coexist' },
+      }),
+    })
+
+    expect(result?.event).toBe('FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING')
+    expect(result?.data.waba_id).toBe('waba-coexist')
+  })
+
   it('aceita FINISH_ONLY_WABA sem exigir phone_number_id no frontend', () => {
     const result = parseMetaSignupMessage({
       origin: 'https://business.facebook.com',

@@ -1,6 +1,6 @@
 import { env } from '../lib/env'
 
-export type MetaSignupData = { waba_id: string; phone_number_id?: string; business_id?: string }
+export type MetaSignupData = { waba_id: string; phone_number_id?: string; business_id?: string; signup_event?: string }
 type FacebookLoginResponse = { authResponse?: { code?: string }; status?: string }
 type FacebookApi = {
   init: (options: { appId: string; cookie: boolean; xfbml: boolean; version: string }) => void
@@ -320,12 +320,10 @@ export async function startWhatsAppEmbeddedSignup(
   let completed = false
   let sessionFinished = false
   let watchdog = 0
-  let postAuthWatchdog = 0
 
   const cleanup = () => {
     window.removeEventListener('message', messageListener)
     if (watchdog) window.clearTimeout(watchdog)
-    if (postAuthWatchdog) window.clearTimeout(postAuthWatchdog)
   }
 
   const finishIfReady = () => {
@@ -355,18 +353,24 @@ export async function startWhatsAppEmbeddedSignup(
     const message = parseMetaSignupMessage(event)
     if (!message) return
 
-    if (message.event === 'FINISH' || message.event === 'FINISH_ONLY_WABA') {
+      if (message.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
       sessionFinished = true
       if (!message.data.waba_id) {
         cleanup()
-        onStatus('A Meta concluiu o fluxo, mas não informou a conta do WhatsApp. Tente novamente.')
+        onStatus('A Meta concluiu o modo de coexistência, mas não informou a conta do WhatsApp. Tente novamente.')
         return
       }
-      signupData = message.data
+      signupData = { ...message.data, signup_event: message.event }
       onStatus(message.data.phone_number_id
-        ? 'Conta e número autorizados pela Meta. Finalizando conexão...'
-        : 'Conta autorizada pela Meta. Localizando o número selecionado...')
+        ? 'Coexistência confirmada pela Meta. Finalizando conexão segura...'
+        : 'Coexistência confirmada. Localizando o número autorizado...')
       finishIfReady()
+      return
+    }
+
+    if (message.event === 'FINISH' || message.event === 'FINISH_ONLY_WABA') {
+      cleanup()
+      onStatus('A Meta concluiu um fluxo diferente da coexistência com o WhatsApp Business. Nenhuma conexão foi salva. Revise a configuração Embedded Signup v4.')
       return
     }
 
@@ -393,7 +397,7 @@ export async function startWhatsAppEmbeddedSignup(
     onStatus(sessionFinished
       ? 'A autorização foi concluída, mas o retorno da Meta ficou incompleto. Tente conectar novamente.'
       : 'A Meta não concluiu a conexão dentro do tempo esperado. Tente novamente.')
-  }, 90_000)
+  }, 10 * 60_000)
 
   onStatus('Abrindo autorização segura da Meta...')
   onDiagnostic?.({ stage: 'login-start' })
@@ -419,21 +423,10 @@ export async function startWhatsAppEmbeddedSignup(
       : 'Autorização recebida. Aguardando a seleção da conta e do número...')
     finishIfReady()
 
-    // Algumas versões atuais do Facebook Login for Business concluem o OAuth
-    // sem entregar o WA_EMBEDDED_SIGNUP por postMessage ao opener. O `code` ainda
-    // é suficiente: o backend troca o código e descobre a WABA autorizada pelos
-    // granular_scopes/target_ids da Meta. Damos uma janela curta ao FINISH normal
-    // e, se ele não chegar, seguimos pelo caminho seguro de descoberta no servidor.
-    if (!signupData) {
-      postAuthWatchdog = window.setTimeout(() => {
-        if (completed || signupData) return
-        completed = true
-        onDiagnostic?.({ stage: 'code-only-fallback', hasAuthorizationCode: true, hasWabaId: false, hasPhoneNumberId: false })
-        cleanup()
-        onStatus('Autorização recebida. Localizando a conta e o número autorizados pela Meta...')
-        onComplete(authCode, { waba_id: '' })
-      }, 8_000)
-    }
+    // No modo de coexistência não usamos fallback apenas com o `code`.
+    // A documentação oficial retorna um evento específico:
+    // FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING. Exigir esse evento evita
+    // vincular por engano um número em um fluxo Cloud API tradicional.
   }, {
     config_id: env.metaConfigId,
     response_type: 'code',
