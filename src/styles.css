@@ -428,3 +428,17 @@ h1,h2,h3,h4,h5,h6,p,span,strong,small,label,a,button,td,th{overflow-wrap:anywher
  .dashboard-action-row{grid-template-columns:auto minmax(0,1fr)!important}.dashboard-action-row>.mini-status{grid-column:2!important}.dashboard-action-row .compact-action-button{grid-column:1/-1;width:100%;justify-self:stretch}
 }
 @media(max-width:380px){.settings-section-tabs{grid-template-columns:1fr}.settings-section-tabs button{justify-content:flex-start}}
+
+/* ============================================================
+   Fechamento pré-Meta — falhas, offline, acessibilidade e contenção
+   ============================================================ */
+.offline-banner{position:sticky;top:0;z-index:55;display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:8px 18px;background:#fff7df;border-bottom:1px solid #f2d68d;color:#7c5a13;font-size:12px;line-height:1.35;text-align:center}
+.offline-banner strong{color:#5f430c}
+.fatal-error-page{min-height:100dvh;display:grid;place-items:center;padding:24px;background:linear-gradient(145deg,#f6f9fc,#edf7f5)}
+.fatal-error-card{width:min(620px,100%);background:#fff;border:1px solid #e2e8f0;border-radius:26px;padding:clamp(24px,5vw,42px);box-shadow:0 24px 70px rgba(31,48,76,.12);text-align:center;overflow:hidden}
+.fatal-error-icon{width:58px;height:58px;margin:0 auto 15px;border-radius:18px;display:grid;place-items:center;background:#fff0ed;color:#d65d50}
+.fatal-error-card h1{margin:8px 0 10px;font-size:clamp(1.65rem,4vw,2.3rem);line-height:1.08}.fatal-error-card p{margin:0 auto;color:#7183a3;max-width:48ch}
+.fatal-error-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:22px}.fatal-error-actions a{text-decoration:none}.fatal-error-card details{margin-top:22px;text-align:left}.fatal-error-card pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;background:#f8fafc;border-radius:12px;padding:12px;max-height:180px;overflow:auto}
+button,a,input,select,textarea{max-width:100%}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(28,181,166,.28);outline-offset:2px}
+@media(max-width:560px){.offline-banner{justify-content:flex-start;text-align:left;padding-inline:12px}.fatal-error-page{padding:0}.fatal-error-card{min-height:100dvh;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:center}.fatal-error-actions{display:grid;grid-template-columns:1fr}.fatal-error-actions>*{width:100%;justify-content:center}}

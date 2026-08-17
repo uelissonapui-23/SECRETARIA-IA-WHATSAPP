@@ -1,4 +1,4 @@
-import { Bell, Bot, CalendarDays, Check, ClipboardList, Home, LogOut, MessageCircle, MoreHorizontal, Settings, ShieldCheck, Sparkles, Users, X } from 'lucide-react'
+import { Bell, Bot, CalendarDays, Check, ClipboardList, Home, LogOut, MessageCircle, MoreHorizontal, Settings, ShieldCheck, Sparkles, Users, WifiOff, X } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
@@ -23,6 +23,7 @@ export function AppShell() {
   const [busy, setBusy] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine)
   const [platformRole, setPlatformRole] = useState<string|null>(null)
   const [notifications, setNotifications] = useState<Array<{id:string;title:string;body:string|null;link:string|null;read_at:string|null;created_at:string;severity?:string}>>([])
 
@@ -43,6 +44,12 @@ export function AppShell() {
   }, [currentCompany])
 
   useEffect(() => { void loadNotifications() }, [loadNotifications])
+  useEffect(() => {
+    const syncOnline = () => setOnline(navigator.onLine)
+    window.addEventListener('online', syncOnline)
+    window.addEventListener('offline', syncOnline)
+    return () => { window.removeEventListener('online', syncOnline); window.removeEventListener('offline', syncOnline) }
+  }, [])
   useEffect(() => { void supabase.rpc('get_my_platform_role').then(({data})=>setPlatformRole((data as string|null)??null)) }, [])
 
   async function markAllRead() {
@@ -76,6 +83,7 @@ export function AppShell() {
         <button type="button" className="sidebar-logout" onClick={logout} disabled={busy}><LogOut size={18}/><span>{busy?'Saindo...':'Sair'}</span></button>
       </aside>
       <main className="main-area">
+        {!online && <div className="offline-banner" role="status"><WifiOff size={17}/><span><strong>Sem internet.</strong> Você pode navegar no que já carregou, mas salvar alterações exige conexão.</span></div>}
         <header className="topbar"><div className="topbar-company">{platformRole && !currentCompany ? <strong>Administração da plataforma</strong> : companies.length > 1 ? <select value={currentCompany?.id ?? ''} onChange={(event)=>void selectCompany(event.target.value)}>{companies.map((company)=><option key={company.id} value={company.id}>{company.name}</option>)}</select> : <strong>{currentCompany?.name ?? 'Minha empresa'}</strong>}<div className="topbar-mode"><span className="mode-dot"/>{platformRole && !currentCompany ? `Acesso ${platformRole}` : 'Secretária em modo observação'}</div></div><button className="icon-button topbar-bell" aria-label="Notificações" onClick={()=>{setNotificationOpen((v)=>!v);void loadNotifications()}}><Bell size={20}/>{unreadCount>0&&<span className="bell-count">{unreadCount>9?'9+':unreadCount}</span>}</button></header>
         <div className="content"><Outlet /></div>
         {notificationOpen && (
