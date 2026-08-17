@@ -442,3 +442,38 @@ h1,h2,h3,h4,h5,h6,p,span,strong,small,label,a,button,td,th{overflow-wrap:anywher
 button,a,input,select,textarea{max-width:100%}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(28,181,166,.28);outline-offset:2px}
 @media(max-width:560px){.offline-banner{justify-content:flex-start;text-align:left;padding-inline:12px}.fatal-error-page{padding:0}.fatal-error-card{min-height:100dvh;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:center}.fatal-error-actions{display:grid;grid-template-columns:1fr}.fatal-error-actions>*{width:100%;justify-content:center}}
+
+/* ============================================================
+   Aceite final pré-Meta — viewport, toque e telas extremas
+   ============================================================ */
+html,body,#root{width:100%;max-width:100%;min-height:100%;overflow-x:hidden}
+body{min-height:100dvh}
+img,svg,video,canvas{max-width:100%}
+input,select,textarea{min-width:0}
+.content>section{min-width:0;width:100%}
+.panel-card,.summary-card,.client-card,.work-card,.agenda-card,.settings-card{min-width:0}
+.compact-row>.grow,.work-row>.grow,.appointment-row>.grow{min-width:0;overflow-wrap:anywhere}
+
+@media(pointer:coarse){
+  button,.nav-link,.bottom-link,.mobile-more-link{min-height:44px}
+  input,select,textarea{font-size:16px}
+}
+
+@media(max-width:420px){
+  .page-heading{gap:14px}
+  .page-heading>.heading-actions,.page-heading>button,.page-heading>a{width:100%}
+  .page-heading>.heading-actions>*{flex:1;justify-content:center}
+  .summary-grid,.summary-grid.four,.quality-strip,.master-stats{grid-template-columns:1fr!important}
+  .topbar-company{min-width:0}.topbar-company>strong,.topbar-company>select{max-width:calc(100vw - 86px);overflow:hidden;text-overflow:ellipsis}
+}
+
+@media(max-height:500px){
+  .topbar{position:relative}
+  .mobile-more-sheet{max-height:92dvh;overflow:auto}
+  .notification-popover{max-height:86dvh;overflow:auto}
+}
+
+@media(min-width:1800px){
+  .content{max-width:1500px}
+  .dashboard-columns{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
