@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CalendarCheck2, CalendarDays, Check, Clock3, History, MapPin, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
@@ -25,6 +26,7 @@ type View = 'upcoming' | 'history'
 
 export function AgendaPage() {
   const { currentCompany } = useCompany()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [items, setItems] = useState<Appointment[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,18 +70,24 @@ export function AgendaPage() {
   const history = useMemo(() => items.filter((i) => i.status !== 'scheduled' || new Date(i.starts_at).getTime() < Date.now() - 86_400_000).sort((a,b)=>new Date(b.starts_at).getTime()-new Date(a.starts_at).getTime()), [items])
   const visible = view === 'upcoming' ? upcoming : history
 
-  function openNew() {
+  function openNew(presetContactId = '') {
     setEditing(null)
     setTitle('')
     setStartsAt(toDateTimeLocal(new Date(Date.now() + 3_600_000).toISOString()))
     setEndsAt('')
     setAddress('')
     setNotes('')
-    setContactId('')
+    setContactId(presetContactId)
     setKind('appointment')
     setReminderMinutes(60)
     setShowForm(true)
   }
+
+  useEffect(() => {
+    if (searchParams.get('novo') !== '1') return
+    openNew(searchParams.get('cliente') ?? '')
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   function openEdit(item: Appointment) {
     setEditing(item)
@@ -148,7 +156,7 @@ export function AgendaPage() {
   return <section>
     <div className="page-heading">
       <div><span className="eyebrow">AGENDA INTERNA</span><h1>Compromissos</h1><p>Agende, reagende, lembre e mantenha o histórico sem depender de outra ferramenta.</p></div>
-      <button className="primary-button action-button" onClick={openNew}><Plus size={17}/>Novo compromisso</button>
+      <button className="primary-button action-button" onClick={()=>openNew()}><Plus size={17}/>Novo compromisso</button>
     </div>
     {error && <div className="form-error page-message">{error}</div>}
 
@@ -175,7 +183,7 @@ export function AgendaPage() {
             <button className="icon-button small danger" onClick={() => void remove(item)} title="Excluir"><Trash2 size={16}/></button>
           </div>
         </article>)}
-      </div> : <div className="big-empty"><CalendarCheck2 size={36}/><h3>{view === 'upcoming' ? 'Sua agenda está livre' : 'Nenhum histórico ainda'}</h3><p>{view === 'upcoming' ? 'Crie um compromisso ou confirme uma sugestão da Secretária.' : 'Compromissos concluídos e cancelados aparecem aqui.'}</p>{view === 'upcoming' && <button className="primary-button action-button" onClick={openNew}><Plus size={17}/>Criar compromisso</button>}</div>}
+      </div> : <div className="big-empty"><CalendarCheck2 size={36}/><h3>{view === 'upcoming' ? 'Sua agenda está livre' : 'Nenhum histórico ainda'}</h3><p>{view === 'upcoming' ? 'Crie um compromisso ou confirme uma sugestão da Secretária.' : 'Compromissos concluídos e cancelados aparecem aqui.'}</p>{view === 'upcoming' && <button className="primary-button action-button" onClick={()=>openNew()}><Plus size={17}/>Criar compromisso</button>}</div>}
     </div>
 
     {showForm && <div className="modal-backdrop" onClick={() => setShowForm(false)}><form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={save}>

@@ -157,6 +157,12 @@ export function DashboardPage() {
       <Link to="/trabalho" className={`summary-card summary-link ${overdue ? 'summary-alert' : ''}`}><span>Atrasados</span><strong>{overdue}</strong><small>{overdue ? 'precisam de ação' : 'tudo em dia'}</small></Link>
     </div>
 
+    <div className="day-brief-card">
+      <div className="day-brief-icon"><CheckCircle2 size={22}/></div>
+      <div className="day-brief-copy"><span className="eyebrow">SEU DIA EM 30 SEGUNDOS</span><h2>{overdue ? `Você tem ${overdue} item(ns) atrasado(s) para resolver primeiro.` : suggestions.length ? `Há ${suggestions.length} sugestão(ões) esperando sua confirmação.` : appointments.length ? `Você tem ${appointments.length} compromisso(s) hoje e nenhuma urgência registrada.` : 'Seu dia está leve e sem urgências registradas.'}</h2><p>{tasks.length + workItems.length ? `Depois disso, há ${tasks.length + workItems.length} pendência(s) em Trabalho.` : 'Não há pendências em Trabalho neste momento.'}</p></div>
+      <Link className="secondary-button day-brief-action" to={overdue?'/trabalho':suggestions.length?'/secretaria':appointments.length?'/agenda':'/trabalho'}>Ver o que fazer</Link>
+    </div>
+
     <div className="focus-panel panel-card">
       <div className="panel-head"><div><span className="eyebrow">PRIORIDADE AGORA</span><h2>{priorities.length ? 'Comece por estes itens' : 'Tudo sob controle'}</h2></div></div>
       {priorities.length ? <div className="focus-list">{priorities.map((item)=><Link to={item.link} className={`focus-item ${item.kind}`} key={item.id}><span className="focus-rank">{item.kind==='overdue'?<Clock3 size={17}/>:item.kind==='suggestion'?<Sparkles size={17}/>:<CalendarDays size={17}/>}</span><span className="grow"><strong>{item.title}</strong><small>{item.text}</small></span><span className="focus-open">Abrir</span></Link>)}</div> : <div className="inline-empty"><div className="list-icon"><CheckCircle2 size={20}/></div><div><strong>Nenhuma urgência agora</strong><span>Você pode seguir o dia normalmente.</span></div></div>}

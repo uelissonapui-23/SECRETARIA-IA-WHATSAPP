@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Check, CircleDollarSign, ClipboardList, Clock3, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
@@ -18,6 +19,7 @@ type Editing = { kind:'task'; item:Task } | { kind:'work'; item:WorkItem } | nul
 
 export function WorkPage() {
   const { currentCompany } = useCompany()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [tasks,setTasks]=useState<Task[]>([])
   const [work,setWork]=useState<WorkItem[]>([])
   const [contacts,setContacts]=useState<Contact[]>([])
@@ -56,9 +58,16 @@ export function WorkPage() {
   const openItems=useMemo(()=>[...tasks.filter(t=>t.status!=='done'),...work.filter(w=>w.status!=='done'&&w.status!=='cancelled')],[tasks,work])
   const overdue=openItems.filter(i=>isOverdue(i.due_at)).length
 
-  function resetForm(kind:'task'|'work') {
-    setFormKind(kind);setEditing(null);setTitle('');setDescription('');setDue('');setPriority('normal');setContactId('');setWorkType('service');setAmount('');setStatus('open');setShowForm(true)
+  function resetForm(kind:'task'|'work', presetContactId = '', presetType: WorkItem['type'] = 'service') {
+    setFormKind(kind);setEditing(null);setTitle('');setDescription('');setDue('');setPriority('normal');setContactId(presetContactId);setWorkType(presetType);setAmount('');setStatus('open');setShowForm(true)
   }
+  useEffect(()=>{
+    const novo=searchParams.get('novo')
+    if(novo!=='task'&&novo!=='work')return
+    const requestedType=(searchParams.get('tipo')||'service') as WorkItem['type']
+    resetForm(novo, searchParams.get('cliente')??'', requestedType)
+    setSearchParams({}, {replace:true})
+  },[searchParams,setSearchParams])
   function openEditTask(item:Task) {
     setFormKind('task');setEditing({kind:'task',item});setTitle(item.title);setDescription(item.description??'');setDue(toDateTimeLocal(item.due_at));setPriority(item.priority??'normal');setContactId(item.contact_id??'');setAmount('');setStatus(item.status==='done'?'done':'open');setShowForm(true)
   }

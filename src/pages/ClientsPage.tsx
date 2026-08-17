@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarDays, ClipboardList, Mail, MessageCircle, Phone, Plus, Search, Sparkles, Trash2, UserRound, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { formatDateTime } from '../lib/format'
@@ -13,6 +14,7 @@ type ClientDetails = { appointments:Appointment[]; tasks:Task[]; work:WorkItem[]
 
 export function ClientsPage(){
   const{currentCompany}=useCompany()
+  const navigate=useNavigate()
   const[items,setItems]=useState<Contact[]>([])
   const[loading,setLoading]=useState(true)
   const[error,setError]=useState('')
@@ -69,7 +71,8 @@ export function ClientsPage(){
 
     {showForm&&<div className="modal-backdrop" onClick={()=>setShowForm(false)}><form className="modal-card" onClick={e=>e.stopPropagation()} onSubmit={save}><div className="modal-head"><div><span className="eyebrow">CLIENTE</span><h2>{editing?'Editar cliente':'Novo cliente'}</h2></div><button type="button" className="icon-button" onClick={()=>setShowForm(false)}><X size={18}/></button></div><div className="form-stack"><label><span>Nome</span><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nome do cliente"/></label><div className="form-grid two"><label><span>Telefone</span><input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="(00) 00000-0000"/></label><label><span>E-mail</span><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="cliente@email.com"/></label></div><label><span>Anotações gerais</span><textarea rows={5} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Endereço, observações ou informações gerais..."/></label></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setShowForm(false)}>Cancelar</button><button className="primary-button" disabled={busy}>{busy?'Salvando...':'Salvar cliente'}</button></div></form></div>}
 
-    {selected&&<div className="modal-backdrop" onClick={()=>setSelected(null)}><div className="modal-card client-detail-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">HISTÓRICO DO CLIENTE</span><h2>{selected.name||selected.phone||'Cliente'}</h2></div><div className="heading-actions"><button className="secondary-button" onClick={()=>{setSelected(null);openEdit(selected)}}>Editar cadastro</button><button className="icon-button" onClick={()=>setSelected(null)}><X size={18}/></button></div></div>
+    {selected&&<div className="modal-backdrop" onClick={()=>setSelected(null)}><div className="modal-card client-detail-modal" onClick={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">HISTÓRICO DO CLIENTE</span><h2>{selected.name||selected.phone||'Cliente'}</h2><p className="modal-subtitle">Tudo relacionado a este cliente em um só lugar.</p></div><div className="heading-actions"><button className="secondary-button" onClick={()=>{setSelected(null);openEdit(selected)}}>Editar cadastro</button><button className="icon-button" onClick={()=>setSelected(null)}><X size={18}/></button></div></div>
+      <div className="client-context-actions"><button className="primary-button" onClick={()=>{const id=selected.id;setSelected(null);navigate(`/agenda?novo=1&cliente=${id}`)}}><CalendarDays size={16}/>Agendar</button><button className="secondary-button" onClick={()=>{const id=selected.id;setSelected(null);navigate(`/trabalho?novo=task&cliente=${id}`)}}><ClipboardList size={16}/>Criar tarefa</button><button className="secondary-button" onClick={()=>{const id=selected.id;setSelected(null);navigate(`/trabalho?novo=work&cliente=${id}&tipo=service`)}}><Plus size={16}/>Criar trabalho</button></div>
       {detailBusy||!details?<div className="loading-block">Carregando histórico...</div>:<div className="client-detail-grid">
         <div className="client-detail-main">
           <div className="client-stats"><div><CalendarDays size={18}/><strong>{details.appointments.length}</strong><span>agenda</span></div><div><ClipboardList size={18}/><strong>{details.tasks.length+details.work.length}</strong><span>trabalho</span></div><div><Sparkles size={18}/><strong>{details.memories.length}</strong><span>memórias</span></div></div>
