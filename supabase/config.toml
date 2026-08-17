@@ -34,3 +34,6 @@ verify_jwt = false
 
 [functions.analysis-lab]
 verify_jwt = false
+
+[functions.analysis-control]
+verify_jwt = false
