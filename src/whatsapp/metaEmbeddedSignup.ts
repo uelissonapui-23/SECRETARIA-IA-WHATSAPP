@@ -1,6 +1,6 @@
 import { env } from '../lib/env'
 
-export type MetaSignupData = { waba_id: string; phone_number_id?: string; business_id?: string; redirect_uri?: string }
+export type MetaSignupData = { waba_id: string; phone_number_id?: string; business_id?: string }
 type FacebookLoginResponse = { authResponse?: { code?: string }; status?: string }
 type FacebookApi = {
   init: (options: { appId: string; cookie: boolean; xfbml: boolean; version: string }) => void
@@ -315,10 +315,6 @@ export async function startWhatsAppEmbeddedSignup(
   await loadMetaSdk()
   onDiagnostic?.({ stage: 'sdk-ready' })
 
-  // Usa uma URI OAuth explícita e estável. A Meta vincula o authorization code
-  // ao redirect_uri usado no diálogo e exige o mesmo valor na troca do code.
-  const oauthRedirectUri = new URL('/', window.location.origin).toString()
-
   let signupData: MetaSignupData | null = null
   let authCode = ''
   let completed = false
@@ -345,7 +341,7 @@ export async function startWhatsAppEmbeddedSignup(
     })
     cleanup()
     onStatus('Autorização recebida. Vinculando a conta do WhatsApp...')
-    onComplete(authCode, { ...signupData, redirect_uri: oauthRedirectUri })
+    onComplete(authCode, signupData)
   }
 
   const messageListener = (event: MessageEvent) => {
@@ -435,14 +431,13 @@ export async function startWhatsAppEmbeddedSignup(
         onDiagnostic?.({ stage: 'code-only-fallback', hasAuthorizationCode: true, hasWabaId: false, hasPhoneNumberId: false })
         cleanup()
         onStatus('Autorização recebida. Localizando a conta e o número autorizados pela Meta...')
-        onComplete(authCode, { waba_id: '', redirect_uri: oauthRedirectUri })
+        onComplete(authCode, { waba_id: '' })
       }, 8_000)
     }
   }, {
     config_id: env.metaConfigId,
     response_type: 'code',
     override_default_response_type: true,
-    redirect_uri: oauthRedirectUri,
     // O OAuth e o WA_EMBEDDED_SIGNUP são canais diferentes. `setup` inicia o
     // fluxo incorporado e `sessionInfoVersion` habilita o postMessage de sessão
     // que entrega WABA/phone_number_id. Sem isso, o login pode retornar `code`
