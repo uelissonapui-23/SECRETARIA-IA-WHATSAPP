@@ -37,3 +37,6 @@ verify_jwt = false
 
 [functions.analysis-control]
 verify_jwt = false
+
+[functions.analysis-evaluation]
+verify_jwt = false

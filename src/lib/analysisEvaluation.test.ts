@@ -1,0 +1,3 @@
+import {describe,expect,it} from 'vitest'
+import {exactTypeMatch,scoreEvaluation,releaseLabel} from './analysisEvaluation'
+describe('analysis evaluation',()=>{it('compara tipos sem depender da ordem',()=>expect(exactTypeMatch(['task','appointment'],['appointment','task'])).toBe(true));it('detecta diferença',()=>expect(exactTypeMatch(['task'],['quote'])).toBe(false));it('calcula score e regressões',()=>expect(scoreEvaluation([{passed:true},{passed:false,regression:true}])).toEqual({total:2,passed:1,score:.5,regressions:1}));it('rotula liberação',()=>expect(releaseLabel('pilot')).toBe('Piloto'))})
