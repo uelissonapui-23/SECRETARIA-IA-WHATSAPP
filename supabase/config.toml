@@ -25,3 +25,9 @@ verify_jwt = false
 
 [functions.process-message]
 verify_jwt = false
+
+[functions.whatsapp-connect]
+verify_jwt = false
+
+[functions.whatsapp-disconnect]
+verify_jwt = false

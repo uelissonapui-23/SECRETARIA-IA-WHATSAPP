@@ -78,8 +78,11 @@ export function WhatsAppPage() {
       await startWhatsAppEmbeddedSignup(async (code, meta) => {
         try {
           setNotice('Autorização recebida. Vinculando o número com segurança...')
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+          if (sessionError || !sessionData.session?.access_token) throw new Error('not_authenticated')
           const { data, error: invokeError } = await supabase.functions.invoke('whatsapp-connect', {
             body: { company_id: currentCompany.id, code, ...meta },
+            headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
           })
           if (invokeError) throw new Error(await functionInvokeErrorMessage(invokeError))
           if (data?.error) throw new Error(`${data.error}${data.trace_id ? ` [ref. ${data.trace_id}]` : ''}`)
@@ -95,7 +98,12 @@ export function WhatsAppPage() {
     if (!currentCompany || !canManage || !window.confirm('Desconectar este WhatsApp? A Secretária deixará de registrar novas mensagens até uma nova conexão.')) return
     setBusy(true); setError(''); setNotice('')
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('whatsapp-disconnect', { body: { company_id: currentCompany.id } })
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !sessionData.session?.access_token) throw new Error('not_authenticated')
+      const { data, error: invokeError } = await supabase.functions.invoke('whatsapp-disconnect', {
+        body: { company_id: currentCompany.id },
+        headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+      })
       if (invokeError) throw invokeError
       if (data?.error) throw new Error(data.error)
       setNotice('WhatsApp desconectado do sistema.')

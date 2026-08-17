@@ -13,67 +13,34 @@ function serviceClient() {
   return createClient(Deno.env.get('SUPABASE_URL')!, key, { auth: { persistSession: false } })
 }
 
-async function canManageCompany(service: ReturnType<typeof serviceClient>, companyId: string, userId: string) {
-  // Caminho principal: se o vínculo já diz owner/admin, não consultamos mais nada.
-  // Isso evita que uma inconsistência secundária em companies.created_by derrube
-  // uma permissão que já está válida em company_members.
-  const { data: membership, error: membershipError } = await service
-    .from('company_members')
-    .select('role')
-    .eq('company_id', companyId)
-    .eq('user_id', userId)
-    .maybeSingle()
+function authenticatedClient(authHeader: string) {
+  const key = Deno.env.get('SUPABASE_ANON_KEY')
+  if (!key) throw new Error('SUPABASE_ANON_KEY ausente')
+  return createClient(Deno.env.get('SUPABASE_URL')!, key, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
 
-  if (membershipError) {
-    console.error('[company-permission] membership-query-error', {
-      code: membershipError.code ?? null,
-      message: membershipError.message ?? 'unknown',
-    })
-    return { allowed: false, role: null as string | null, isCreator: false, source: 'membership-error' }
+async function canManageCompany(authHeader: string, companyId: string) {
+  const client = authenticatedClient(authHeader)
+  const jwt = authHeader.replace(/^Bearer\s+/i, '')
+  const { data: { user }, error: userError } = await client.auth.getUser(jwt)
+  if (userError || !user) {
+    return { allowed: false, role: null as string | null, user: null, error: 'not_authenticated' }
   }
 
-  const role = typeof membership?.role === 'string' ? membership.role : null
-  if (role === 'owner' || role === 'admin') {
-    return { allowed: true, role, isCreator: false, source: 'membership' }
+  // Usa a função canônica do banco com auth.uid() do JWT do usuário.
+  // Assim frontend, RLS e Edge Function obedecem à MESMA regra de papel.
+  const { data: roleValue, error: roleError } = await client
+    .rpc('company_role_for', { target_company_id: companyId })
+
+  if (roleError) {
+    return { allowed: false, role: null as string | null, user, error: roleError.message }
   }
 
-  // Fallback seguro para bases antigas: somente o criador ORIGINAL da empresa
-  // pode recuperar o vínculo de owner. Se essa consulta falhar, não concedemos acesso.
-  const { data: company, error: companyError } = await service
-    .from('companies')
-    .select('created_by')
-    .eq('id', companyId)
-    .maybeSingle()
-
-  if (companyError) {
-    console.error('[company-permission] company-query-error', {
-      code: companyError.code ?? null,
-      message: companyError.message ?? 'unknown',
-    })
-    return { allowed: false, role, isCreator: false, source: 'company-error' }
-  }
-
-  const isCreator = company?.created_by === userId
-  if (!isCreator) {
-    return { allowed: false, role, isCreator: false, source: 'membership' }
-  }
-
-  // A recuperação do vínculo é útil, mas NÃO deve impedir a operação atual caso
-  // o banco rejeite o reparo por uma constraint/política antiga.
-  const { error: repairError } = await service.from('company_members').upsert({
-    company_id: companyId,
-    user_id: userId,
-    role: 'owner',
-  }, { onConflict: 'company_id,user_id' })
-
-  if (repairError) {
-    console.warn('[company-permission] owner-repair-failed', {
-      code: repairError.code ?? null,
-      message: repairError.message ?? 'unknown',
-    })
-  }
-
-  return { allowed: true, role: 'owner', isCreator: true, source: repairError ? 'creator-repair-failed' : 'creator' }
+  const role = typeof roleValue === 'string' ? roleValue : null
+  return { allowed: role === 'owner' || role === 'admin', role, user, error: null as string | null }
 }
 
 Deno.serve(async (req) => {
@@ -82,16 +49,16 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('authorization') ?? ''
-    const jwt = authHeader.replace(/^Bearer\s+/i, '')
-    const service = serviceClient()
-    const { data: { user }, error: userError } = await service.auth.getUser(jwt)
-    if (userError || !user) return json({ error: 'not_authenticated' }, 401)
+    if (!/^Bearer\s+\S+/i.test(authHeader)) return json({ error: 'not_authenticated' }, 401)
 
     const { company_id } = await req.json()
     if (!company_id) return json({ error: 'company_id_required' }, 400)
 
-    const permission = await canManageCompany(service, company_id, user.id)
+    const permission = await canManageCompany(authHeader, company_id)
+    if (!permission.user) return json({ error: 'not_authenticated' }, 401)
     if (!permission.allowed) return json({ error: 'not_company_admin' }, 403)
+    const user = permission.user
+    const service = serviceClient()
 
     const { data: connection } = await service.from('whatsapp_connections').select('*').eq('company_id', company_id).maybeSingle()
     if (!connection) return json({ ok: true })

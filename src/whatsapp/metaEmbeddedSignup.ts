@@ -432,7 +432,7 @@ export async function startWhatsAppEmbeddedSignup(
         cleanup()
         onStatus('Autorização recebida. Localizando a conta e o número autorizados pela Meta...')
         onComplete(authCode, { waba_id: '' })
-      }, 2_000)
+      }, 8_000)
     }
   }, {
     config_id: env.metaConfigId,
@@ -444,7 +444,10 @@ export async function startWhatsAppEmbeddedSignup(
     // normalmente e nunca enviar a sessão do WhatsApp.
     extras: {
       setup: {},
-      featureType: '',
+      // Coexistência oficial: mantém o número no WhatsApp Business app e
+      // habilita o mesmo número na Cloud API. Esse é o fluxo necessário para
+      // a Secretária observar novas mensagens sem tirar o empresário do app.
+      featureType: 'whatsapp_business_app_onboarding',
       sessionInfoVersion: '3',
     },
   })
