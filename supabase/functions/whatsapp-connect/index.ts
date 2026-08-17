@@ -15,31 +15,66 @@ function serviceClient() {
 }
 
 async function canManageCompany(service: ReturnType<typeof serviceClient>, companyId: string, userId: string) {
-  const [{ data: membership, error: membershipError }, { data: company, error: companyError }] = await Promise.all([
-    service.from('company_members').select('role').eq('company_id', companyId).eq('user_id', userId).maybeSingle(),
-    service.from('companies').select('created_by').eq('id', companyId).maybeSingle(),
-  ])
+  // Caminho principal: se o vínculo já diz owner/admin, não consultamos mais nada.
+  // Isso evita que uma inconsistência secundária em companies.created_by derrube
+  // uma permissão que já está válida em company_members.
+  const { data: membership, error: membershipError } = await service
+    .from('company_members')
+    .select('role')
+    .eq('company_id', companyId)
+    .eq('user_id', userId)
+    .maybeSingle()
 
-  if (membershipError) throw membershipError
-  if (companyError) throw companyError
-
-  const role = typeof membership?.role === 'string' ? membership.role : null
-  const isAdminMember = role === 'owner' || role === 'admin'
-  const isCreator = company?.created_by === userId
-
-  // `created_by` é a autoridade final para a empresa original. Se um dado antigo
-  // perdeu/alterou o vínculo de owner em company_members, restauramos esse vínculo
-  // sem conceder acesso a nenhuma outra pessoa.
-  if (isCreator && role !== 'owner') {
-    const { error: repairError } = await service.from('company_members').upsert({
-      company_id: companyId,
-      user_id: userId,
-      role: 'owner',
-    }, { onConflict: 'company_id,user_id' })
-    if (repairError) throw repairError
+  if (membershipError) {
+    console.error('[company-permission] membership-query-error', {
+      code: membershipError.code ?? null,
+      message: membershipError.message ?? 'unknown',
+    })
+    return { allowed: false, role: null as string | null, isCreator: false, source: 'membership-error' }
   }
 
-  return { allowed: isAdminMember || isCreator, role, isCreator }
+  const role = typeof membership?.role === 'string' ? membership.role : null
+  if (role === 'owner' || role === 'admin') {
+    return { allowed: true, role, isCreator: false, source: 'membership' }
+  }
+
+  // Fallback seguro para bases antigas: somente o criador ORIGINAL da empresa
+  // pode recuperar o vínculo de owner. Se essa consulta falhar, não concedemos acesso.
+  const { data: company, error: companyError } = await service
+    .from('companies')
+    .select('created_by')
+    .eq('id', companyId)
+    .maybeSingle()
+
+  if (companyError) {
+    console.error('[company-permission] company-query-error', {
+      code: companyError.code ?? null,
+      message: companyError.message ?? 'unknown',
+    })
+    return { allowed: false, role, isCreator: false, source: 'company-error' }
+  }
+
+  const isCreator = company?.created_by === userId
+  if (!isCreator) {
+    return { allowed: false, role, isCreator: false, source: 'membership' }
+  }
+
+  // A recuperação do vínculo é útil, mas NÃO deve impedir a operação atual caso
+  // o banco rejeite o reparo por uma constraint/política antiga.
+  const { error: repairError } = await service.from('company_members').upsert({
+    company_id: companyId,
+    user_id: userId,
+    role: 'owner',
+  }, { onConflict: 'company_id,user_id' })
+
+  if (repairError) {
+    console.warn('[company-permission] owner-repair-failed', {
+      code: repairError.code ?? null,
+      message: repairError.message ?? 'unknown',
+    })
+  }
+
+  return { allowed: true, role: 'owner', isCreator: true, source: repairError ? 'creator-repair-failed' : 'creator' }
 }
 
 async function graph(path: string, token: string, init?: RequestInit) {
@@ -184,8 +219,19 @@ Deno.serve(async (req) => {
     log('connection-complete', { connection_id: connection.id })
     return json({ connection, trace_id: traceId })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'connection_failed'
-    console.error(`[whatsapp-connect:${traceId}] unhandled-error`, { message, name: error instanceof Error ? error.name : typeof error })
+    const objectError = error && typeof error === 'object' ? error as Record<string, unknown> : null
+    const message = error instanceof Error
+      ? error.message
+      : typeof objectError?.message === 'string'
+        ? objectError.message
+        : 'connection_failed'
+    console.error(`[whatsapp-connect:${traceId}] unhandled-error`, {
+      message,
+      name: error instanceof Error ? error.name : typeof error,
+      code: typeof objectError?.code === 'string' ? objectError.code : null,
+      details: typeof objectError?.details === 'string' ? objectError.details : null,
+      hint: typeof objectError?.hint === 'string' ? objectError.hint : null,
+    })
     return json({ error: message, step: 'unhandled-error', trace_id: traceId }, 500)
   }
 })
