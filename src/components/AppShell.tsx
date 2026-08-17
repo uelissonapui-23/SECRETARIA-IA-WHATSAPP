@@ -26,10 +26,17 @@ export function AppShell() {
   const [platformRole, setPlatformRole] = useState<string|null>(null)
   const [notifications, setNotifications] = useState<Array<{id:string;title:string;body:string|null;link:string|null;read_at:string|null;created_at:string;severity?:string}>>([])
 
-  const items = useMemo(() => platformRole ? [...baseItems, { to:'/master', label:'Área Master', icon:ShieldCheck }] : baseItems, [platformRole])
+  const items = useMemo(() => {
+    const masterItem = { to:'/master', label:'Área Master', icon:ShieldCheck }
+    if (platformRole && !currentCompany) return [masterItem]
+    return platformRole ? [...baseItems, masterItem] : baseItems
+  }, [platformRole, currentCompany])
 
   const loadNotifications = useCallback(async () => {
-    if (!currentCompany) return
+    if (!currentCompany) {
+      setNotifications([])
+      return
+    }
     await supabase.rpc('refresh_company_notifications', { target_company_id: currentCompany.id })
     const { data } = await supabase.from('app_notifications').select('id,title,body,link,read_at,created_at,severity').eq('company_id', currentCompany.id).order('created_at', { ascending:false }).limit(16)
     setNotifications((data ?? []) as typeof notifications)
@@ -69,7 +76,7 @@ export function AppShell() {
         <button type="button" className="sidebar-logout" onClick={logout} disabled={busy}><LogOut size={18}/><span>{busy?'Saindo...':'Sair'}</span></button>
       </aside>
       <main className="main-area">
-        <header className="topbar"><div className="topbar-company">{companies.length > 1 ? <select value={currentCompany?.id ?? ''} onChange={(event)=>void selectCompany(event.target.value)}>{companies.map((company)=><option key={company.id} value={company.id}>{company.name}</option>)}</select> : <strong>{currentCompany?.name ?? 'Minha empresa'}</strong>}<div className="topbar-mode"><span className="mode-dot"/>Secretária em modo observação</div></div><button className="icon-button topbar-bell" aria-label="Notificações" onClick={()=>{setNotificationOpen((v)=>!v);void loadNotifications()}}><Bell size={20}/>{unreadCount>0&&<span className="bell-count">{unreadCount>9?'9+':unreadCount}</span>}</button></header>
+        <header className="topbar"><div className="topbar-company">{platformRole && !currentCompany ? <strong>Administração da plataforma</strong> : companies.length > 1 ? <select value={currentCompany?.id ?? ''} onChange={(event)=>void selectCompany(event.target.value)}>{companies.map((company)=><option key={company.id} value={company.id}>{company.name}</option>)}</select> : <strong>{currentCompany?.name ?? 'Minha empresa'}</strong>}<div className="topbar-mode"><span className="mode-dot"/>{platformRole && !currentCompany ? `Acesso ${platformRole}` : 'Secretária em modo observação'}</div></div><button className="icon-button topbar-bell" aria-label="Notificações" onClick={()=>{setNotificationOpen((v)=>!v);void loadNotifications()}}><Bell size={20}/>{unreadCount>0&&<span className="bell-count">{unreadCount>9?'9+':unreadCount}</span>}</button></header>
         <div className="content"><Outlet /></div>
         {notificationOpen && (
           <div className="notification-popover">
