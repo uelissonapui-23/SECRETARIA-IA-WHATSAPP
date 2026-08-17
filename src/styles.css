@@ -166,3 +166,159 @@ body{background:radial-gradient(circle at 82% 2%,rgba(155,135,245,.08),transpare
 .day-brief-icon{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;background:rgba(20,184,166,.13);color:#0f766e}
 .day-brief-copy h2{font-size:1.05rem;margin:4px 0 3px;line-height:1.35}.day-brief-copy p{margin:0;color:var(--muted,#64748b);font-size:.9rem}.day-brief-action{white-space:nowrap;text-decoration:none}
 @media(max-width:760px){.day-brief-card{grid-template-columns:auto 1fr}.day-brief-action{grid-column:1/-1;width:100%;justify-content:center}.client-context-actions{display:grid;grid-template-columns:1fr}.client-context-actions button{justify-content:center;width:100%}}
+
+
+
+/* ============================================================
+   Regra global de responsividade — celular, tablet, desktop e TV
+   Nada deve cortar, cobrir ou escapar da viewport.
+   ============================================================ */
+html{width:100%;min-width:0;overflow-x:hidden;-webkit-text-size-adjust:100%}
+body,#root,.app-shell,.main-area{width:100%;min-width:0;max-width:100%;overflow-x:hidden}
+img,picture,video,canvas,iframe{display:block;max-width:100%;height:auto}
+svg{max-width:100%}
+pre,code{max-width:100%;overflow-wrap:anywhere}
+pre{overflow:auto}
+table{max-width:100%}
+input,select,textarea,button{max-width:100%}
+textarea{min-width:0}
+section,.content,.panel-card,.summary-card,.toolbar-card,.record-row,.record-main,.page-heading>div,.topbar-company,.client-content,.client-detail-main,.client-memory-panel,.master-tab-content{min-width:0}
+h1,h2,h3,h4,h5,h6,p,span,strong,small,label,a,button,td,th{overflow-wrap:anywhere}
+.content{width:100%;max-width:1480px;padding-inline:clamp(16px,2.4vw,42px)}
+.page-heading{gap:18px}
+.page-heading>div{max-width:100%}
+.page-heading h1{font-size:clamp(1.65rem,2.3vw,2.35rem)}
+.page-heading p{max-width:760px}
+.panel-head>div{min-width:0}
+.panel-head p,.panel-help{margin:5px 0 0;color:var(--muted,#64748b);font-size:.82rem;line-height:1.45}
+.cards-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.summary-grid,.summary-grid.four,.summary-grid.three.compact-summary{grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))}
+.dashboard-columns,.settings-layout,.analysis-two-col,.analysis-health-grid{min-width:0}
+.toolbar-card,.filter-strip,.heading-actions,.row-actions,.card-actions,.modal-actions,.client-context-actions{max-width:100%}
+.search-box{min-width:0}
+.search-box input{min-width:0}
+.record-title>strong,.client-content>strong,.compact-row strong{min-width:0}
+.record-meta{row-gap:6px}
+.record-meta span,.client-lines span{min-width:0;max-width:100%}
+.mini-status{max-width:100%;white-space:normal;text-align:center;line-height:1.25}
+.notification-popover{width:min(390px,calc(100vw - 24px));max-height:min(620px,calc(100dvh - 88px));overflow:auto}
+.mobile-more-sheet{max-height:calc(100dvh - 18px);overflow:auto}
+.modal-backdrop{padding:clamp(8px,2vw,24px);overflow:auto;overscroll-behavior:contain}
+.modal-card{width:min(760px,100%);max-width:100%;max-height:calc(100dvh - 2*clamp(8px,2vw,24px));overflow:auto}
+.client-detail-modal{width:min(1180px,100%);max-width:100%}
+.client-detail-grid{grid-template-columns:minmax(0,1.5fr) minmax(min(100%,300px),.72fr)}
+.memory-list{max-height:min(360px,38dvh)}
+.master-tabs,.master-subtabs,.segment-control{max-width:100%}
+.master-table{width:100%;max-width:100%;overflow:auto;overscroll-behavior-inline:contain}
+.master-table-head,.master-table-row{max-width:none}
+.auth-page,.onboarding-page,.setup-page{max-width:100%;overflow-x:hidden}
+.auth-panel,.auth-aside,.onboarding-card,.setup-card{min-width:0;max-width:100%}
+.form-grid.two,.form-grid.three,.monitor-grid,.auth-feature-grid{min-width:0}
+.client-timeline-row.is-closed{opacity:.72}
+.client-timeline-row.kind-agenda .list-icon{background:#edf3ff;color:#5578d9}
+.client-timeline-row.kind-tarefa .list-icon{background:#fff7df;color:#b48219}
+.client-timeline-row.kind-trabalho .list-icon{background:#e9faf6;color:#16998a}
+
+/* Notebook / tablet horizontal */
+@media(max-width:1200px){
+  .content{max-width:100%;padding-inline:24px}
+  .client-detail-grid{grid-template-columns:1fr}
+  .client-memory-panel{order:2}
+  .master-grid{grid-template-columns:1fr}
+  .master-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* Tablet */
+@media(max-width:900px){
+  .content{padding-inline:18px}
+  .page-heading{align-items:flex-start}
+  .dashboard-columns,.settings-layout,.master-overview-columns{grid-template-columns:1fr}
+  .form-grid.three{grid-template-columns:1fr 1fr}
+  .auth-page{grid-template-columns:1fr}
+  .auth-aside{display:none}
+  .auth-panel{padding:clamp(24px,6vw,52px)}
+  .onboarding-content{padding:clamp(24px,5vw,40px)}
+  .master-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* Celular e tablets estreitos */
+@media(max-width:700px){
+  body{min-width:0}
+  .content{padding:20px 14px calc(88px + env(safe-area-inset-bottom))}
+  .topbar{height:auto;min-height:64px;padding:9px 14px;gap:10px}
+  .topbar-company{max-width:calc(100% - 52px)}
+  .topbar-company strong,.topbar-company select{max-width:100%;white-space:normal;line-height:1.25}
+  .topbar-mode{font-size:10px!important;line-height:1.25}
+  .page-heading{flex-direction:column;align-items:stretch;margin-bottom:20px}
+  .page-heading>.action-button,.page-heading>.heading-actions,.heading-actions{width:100%}
+  .page-heading>.action-button,.heading-actions button,.heading-actions a{width:100%;justify-content:center}
+  .toolbar-card,.filter-strip{flex-direction:column;align-items:stretch}
+  .summary-grid,.summary-grid.four,.summary-grid.three.compact-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .summary-card{min-height:100px}
+  .record-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:11px;padding:15px 14px}
+  .record-main{grid-column:2}
+  .row-actions{grid-column:1/-1;padding-left:0;width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+  .row-actions button{width:100%;justify-content:center}
+  .record-title{display:grid;gap:8px}
+  .record-badges{justify-content:flex-start}
+  .compact-row{align-items:flex-start}
+  .compact-row>.mini-status{margin-left:auto}
+  .client-detail-modal{border-radius:18px!important}
+  .client-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .client-stats>div{padding:11px;grid-template-columns:auto 1fr}
+  .client-stats strong{font-size:18px}
+  .client-context-actions{display:grid;grid-template-columns:1fr}
+  .client-context-actions button{width:100%;justify-content:center}
+  .modal-head{align-items:flex-start}
+  .modal-head>.heading-actions{width:auto}
+  .form-grid.two,.form-grid.three,.monitor-grid,.auth-feature-grid{grid-template-columns:1fr}
+  .master-overview-hero,.master-section-bar,.master-ai-header{align-items:stretch}
+  .master-search{width:100%}
+  .master-search input{min-width:0;width:100%}
+  .master-tabs{position:sticky;top:64px;z-index:3;background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+  .master-table{border-radius:14px}
+  .notification-popover{position:fixed;left:12px;right:12px;top:72px;width:auto}
+  .day-brief-card{grid-template-columns:auto 1fr}
+  .day-brief-action{grid-column:1/-1;width:100%;justify-content:center}
+}
+
+/* Celular pequeno */
+@media(max-width:480px){
+  .content{padding-inline:12px}
+  .page-heading h1{font-size:1.65rem}
+  .summary-grid,.summary-grid.four,.summary-grid.three.compact-summary{grid-template-columns:1fr!important}
+  .summary-card{min-height:0}
+  .client-stats{grid-template-columns:1fr}
+  .client-stats>div{grid-template-columns:auto auto 1fr}
+  .record-row{grid-template-columns:1fr}
+  .record-main{grid-column:1}
+  .record-row>.date-badge+.record-main{grid-column:2}
+  .record-row:has(.date-badge){grid-template-columns:auto minmax(0,1fr)}
+  .record-row:has(.date-badge) .row-actions{grid-column:1/-1}
+  .compact-row{display:grid;grid-template-columns:auto minmax(0,1fr)}
+  .compact-row>.mini-status{grid-column:2;justify-self:start;margin:3px 0 0}
+  .modal-backdrop{padding:0;align-items:stretch}
+  .modal-card{width:100%;max-height:100dvh;min-height:100dvh;border-radius:0!important;padding:18px 14px;padding-bottom:max(18px,env(safe-area-inset-bottom))}
+  .modal-actions{position:sticky;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);padding-top:10px;z-index:2}
+  .master-summary-grid{grid-template-columns:1fr}
+  .master-subtabs{grid-template-columns:1fr}
+  .master-subtabs button{width:100%}
+}
+
+/* TV / telas grandes: aproveitar espaço sem espalhar demais */
+@media(min-width:1600px){
+  .sidebar{width:260px}
+  .main-area{margin-left:260px}
+  .content{max-width:1520px;padding:48px 46px 96px}
+  .panel-card{padding:24px}
+  .cards-grid{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .master-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(min-width:2200px){
+  :root{font-size:17px}
+  .sidebar{width:290px}
+  .main-area{margin-left:290px}
+  .content{max-width:1780px}
+  .sidebar .nav-link{font-size:.9rem;padding:13px 14px}
+  .topbar{min-height:80px}
+}

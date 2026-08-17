@@ -12,6 +12,23 @@ const memoryKinds = [
 
 type ClientDetails = { appointments:Appointment[]; tasks:Task[]; work:WorkItem[]; memories:OperationalMemory[] }
 
+
+type ClientTimelineItem = { id:string; title:string; meta:string; at:string|null; kind:'Agenda'|'Tarefa'|'Trabalho'; closed:boolean }
+
+function buildClientTimeline(details:ClientDetails):ClientTimelineItem[]{
+  const items:ClientTimelineItem[] = [
+    ...details.appointments.map(i=>({id:`a-${i.id}`,title:i.title,meta:`Agenda · ${formatDateTime(i.starts_at)}`,at:i.starts_at,kind:'Agenda' as const,closed:i.status==='completed'||i.status==='cancelled'})),
+    ...details.tasks.map(i=>({id:`t-${i.id}`,title:i.title,meta:`Tarefa · ${formatDateTime(i.due_at)}`,at:i.due_at??i.created_at,kind:'Tarefa' as const,closed:i.status==='done'})),
+    ...details.work.map(i=>({id:`w-${i.id}`,title:i.title,meta:`Trabalho · ${formatDateTime(i.due_at)}`,at:i.due_at??i.created_at,kind:'Trabalho' as const,closed:i.status==='done'||i.status==='cancelled'})),
+  ]
+  return items.sort((a,b)=>{
+    const aTime=a.at?new Date(a.at).getTime():0
+    const bTime=b.at?new Date(b.at).getTime():0
+    return bTime-aTime
+  })
+}
+
+
 export function ClientsPage(){
   const{currentCompany}=useCompany()
   const navigate=useNavigate()
@@ -76,7 +93,7 @@ export function ClientsPage(){
       {detailBusy||!details?<div className="loading-block">Carregando histórico...</div>:<div className="client-detail-grid">
         <div className="client-detail-main">
           <div className="client-stats"><div><CalendarDays size={18}/><strong>{details.appointments.length}</strong><span>agenda</span></div><div><ClipboardList size={18}/><strong>{details.tasks.length+details.work.length}</strong><span>trabalho</span></div><div><Sparkles size={18}/><strong>{details.memories.length}</strong><span>memórias</span></div></div>
-          <div className="panel-card compact"><div className="panel-head"><div><span className="eyebrow">ATIVIDADE</span><h3>Histórico recente</h3></div></div><div className="compact-list">{[...details.appointments.map(i=>({id:`a-${i.id}`,title:i.title,meta:`Agenda · ${formatDateTime(i.starts_at)}`})),...details.tasks.map(i=>({id:`t-${i.id}`,title:i.title,meta:`Tarefa · ${formatDateTime(i.due_at)}`})),...details.work.map(i=>({id:`w-${i.id}`,title:i.title,meta:`Trabalho · ${formatDateTime(i.due_at)}`}))].slice(0,12).map(i=><div className="compact-row" key={i.id}><div className="list-icon"><ClipboardList size={15}/></div><div className="grow"><strong>{i.title}</strong><span>{i.meta}</span></div></div>) || null}{!details.appointments.length&&!details.tasks.length&&!details.work.length&&<div className="inline-empty"><div className="list-icon"><ClipboardList size={17}/></div><div><strong>Sem atividade ainda</strong><span>Agenda e trabalho vinculados aparecerão aqui.</span></div></div>}</div></div>
+          <div className="panel-card compact"><div className="panel-head"><div><span className="eyebrow">HISTÓRICO UNIFICADO</span><h3>Últimas atividades</h3><p className="panel-help">Agenda, tarefas e trabalhos aparecem juntos em ordem de data.</p></div></div><div className="compact-list client-timeline">{buildClientTimeline(details).slice(0,16).map(i=><div className={`compact-row client-timeline-row kind-${i.kind.toLowerCase()} ${i.closed?'is-closed':''}`} key={i.id}><div className="list-icon">{i.kind==='Agenda'?<CalendarDays size={15}/>:<ClipboardList size={15}/>}</div><div className="grow"><strong>{i.title}</strong><span>{i.meta}</span></div><span className="mini-status">{i.closed?'Finalizado':i.kind}</span></div>)}{!details.appointments.length&&!details.tasks.length&&!details.work.length&&<div className="inline-empty"><div className="list-icon"><ClipboardList size={17}/></div><div><strong>Sem atividade ainda</strong><span>Agenda e trabalho vinculados aparecerão aqui.</span></div></div>}</div></div>
         </div>
         <aside className="client-memory-panel"><div><span className="eyebrow">MEMÓRIA OPERACIONAL</span><h3>O que vale lembrar</h3><p>Informações úteis para atender este cliente com contexto. Depois a IA poderá alimentar esta área automaticamente.</p></div><form className="memory-form" onSubmit={addMemory}><select value={memoryKind} onChange={e=>setMemoryKind(e.target.value as OperationalMemory['kind'])}>{memoryKinds.map(k=><option key={k.v} value={k.v}>{k.l}</option>)}</select><textarea rows={3} value={memoryContent} onChange={e=>setMemoryContent(e.target.value)} placeholder="Ex.: Prefere contato pela manhã; prometeu retorno sexta..."/><button className="primary-button" disabled={memoryBusy||!memoryContent.trim()}>{memoryBusy?'Salvando...':'Guardar memória'}</button></form><div className="memory-list">{details.memories.map(m=><div className={`memory-item importance-${m.importance}`} key={m.id}><div><span className="mini-status">{memoryKinds.find(k=>k.v===m.kind)?.l}</span><p>{m.content}</p><small>{formatDateTime(m.created_at)}</small></div><button className="icon-button small danger" onClick={()=>void removeMemory(m)}><Trash2 size={14}/></button></div>)}{!details.memories.length&&<div className="notification-empty"><Sparkles size={22}/><strong>Nenhuma memória ainda</strong><span>Guarde apenas o que realmente ajuda no atendimento.</span></div>}</div></aside>
       </div>}
