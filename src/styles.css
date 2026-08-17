@@ -144,3 +144,4 @@ body{background:radial-gradient(circle at 82% 2%,rgba(155,135,245,.08),transpare
 
 /* Quality gate / evaluation */
 .button-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem}.quality-strip.compact{margin-top:1rem}.master-table-row select{max-width:150px;border:1px solid var(--border);border-radius:10px;padding:.45rem .55rem;background:var(--surface);color:var(--text)}
+.release-controls{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}.release-controls select{min-width:125px}.inline-actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}.inline-actions input{min-width:220px}.mini-action{border:1px solid var(--line,#dbe3ef);background:#fff;border-radius:9px;padding:.42rem .65rem;font:inherit;font-size:.78rem;cursor:pointer}.mini-action:hover{transform:translateY(-1px)}.master-empty-row{padding:1rem;color:#64748b}
