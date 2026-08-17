@@ -46,7 +46,7 @@ export type WorkItem = {
   company_id: string
   contact_id: string | null
   suggestion_id: string | null
-  type: 'order' | 'service' | 'quote' | 'follow_up' | 'deadline' | 'awaiting_reply'
+  type: 'order' | 'service' | 'quote' | 'payment' | 'follow_up' | 'deadline' | 'awaiting_reply'
   title: string
   description: string | null
   amount: number | null
@@ -72,4 +72,17 @@ export type Suggestion = {
   confidence: number | null
   status: 'pending' | 'confirmed' | 'edited' | 'ignored'
   created_at: string
+}
+
+export type OperationalMemory = {
+  id: string
+  company_id: string
+  contact_id: string | null
+  kind: 'context' | 'preference' | 'commitment' | 'important' | 'instruction'
+  content: string
+  source: 'manual' | 'conversation' | 'assistant' | 'system'
+  importance: 'low' | 'normal' | 'high'
+  is_active: boolean
+  created_at: string
+  updated_at: string
 }
