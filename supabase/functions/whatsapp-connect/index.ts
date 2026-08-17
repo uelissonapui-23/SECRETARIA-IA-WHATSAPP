@@ -70,9 +70,23 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('authorization') ?? ''
     if (!/^Bearer\s+\S+/i.test(authHeader)) return fail('auth-header', 'not_authenticated', 401)
 
-    const { company_id, code, waba_id, phone_number_id: requestedPhoneNumberId, business_id } = await req.json()
+    const { company_id, code, waba_id, phone_number_id: requestedPhoneNumberId, business_id, redirect_uri } = await req.json()
     if (!company_id || !code) return fail('request-validation', 'missing_connection_data', 400, { has_company_id: Boolean(company_id), has_code: Boolean(code) })
-    log('request-validated', { company_id, has_waba_id: Boolean(waba_id), has_phone_number_id: Boolean(requestedPhoneNumberId), has_business_id: Boolean(business_id) })
+
+    let oauthRedirectUri = ''
+    if (typeof redirect_uri === 'string' && redirect_uri.trim()) {
+      try {
+        const parsedRedirect = new URL(redirect_uri.trim())
+        if (parsedRedirect.protocol !== 'https:' || parsedRedirect.username || parsedRedirect.password || parsedRedirect.search || parsedRedirect.hash || parsedRedirect.pathname !== '/') {
+          return fail('request-validation', 'invalid_redirect_uri', 400)
+        }
+        oauthRedirectUri = parsedRedirect.toString()
+      } catch {
+        return fail('request-validation', 'invalid_redirect_uri', 400)
+      }
+    }
+    if (!oauthRedirectUri) return fail('request-validation', 'missing_redirect_uri', 400)
+    log('request-validated', { company_id, has_waba_id: Boolean(waba_id), has_phone_number_id: Boolean(requestedPhoneNumberId), has_business_id: Boolean(business_id), redirect_origin: new URL(oauthRedirectUri).origin })
 
     const permission = await canManageCompany(authHeader, company_id)
     log('membership-check', { role: permission.role, allowed: permission.allowed, auth_error: permission.error })
@@ -93,7 +107,8 @@ Deno.serve(async (req) => {
     tokenUrl.searchParams.set('client_id', appId)
     tokenUrl.searchParams.set('client_secret', appSecret)
     tokenUrl.searchParams.set('code', code)
-    log('oauth-exchange-start')
+    tokenUrl.searchParams.set('redirect_uri', oauthRedirectUri)
+    log('oauth-exchange-start', { redirect_origin: new URL(oauthRedirectUri).origin })
     const tokenResponse = await fetch(tokenUrl)
     const tokenPayload = await tokenResponse.json().catch(() => ({}))
     if (!tokenResponse.ok || !tokenPayload.access_token) return fail('oauth-exchange', tokenPayload?.error?.message ?? 'Falha ao trocar código da Meta', tokenResponse.status || 502, { meta_status: tokenResponse.status, meta_error_code: tokenPayload?.error?.code ?? null, meta_error_subcode: tokenPayload?.error?.error_subcode ?? null })
