@@ -30,12 +30,12 @@ export function AppShell() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand"><div className="brand-mark">S</div><div><strong>Secretária IA</strong><span>V1</span></div></div>
+        <div className="brand"><div className="brand-mark">S</div><div><strong>Secretária IA</strong><span>Organização inteligente</span></div></div>
         <nav>{items.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={19} /><span>{label}</span></NavLink>)}</nav>
         <button type="button" className="sidebar-logout" onClick={logout} disabled={busy}><LogOut size={18}/><span>{busy?'Saindo...':'Sair'}</span></button>
       </aside>
       <main className="main-area">
-        <header className="topbar"><div className="topbar-company">{companies.length > 1 ? <select value={currentCompany?.id ?? ''} onChange={(event)=>void selectCompany(event.target.value)}>{companies.map((company)=><option key={company.id} value={company.id}>{company.name}</option>)}</select> : <strong>{currentCompany?.name ?? 'Minha empresa'}</strong>}<span>Secretária em modo observação</span></div><button className="icon-button" aria-label="Notificações" title="Central de notificações preparada para o próximo módulo"><Bell size={20}/></button></header>
+        <header className="topbar"><div className="topbar-company">{companies.length > 1 ? <select value={currentCompany?.id ?? ''} onChange={(event)=>void selectCompany(event.target.value)}>{companies.map((company)=><option key={company.id} value={company.id}>{company.name}</option>)}</select> : <strong>{currentCompany?.name ?? 'Minha empresa'}</strong>}<div className="topbar-mode"><span className="mode-dot"/>Secretária em modo observação</div></div><button className="icon-button topbar-bell" aria-label="Notificações" title="Central de notificações preparada para o próximo módulo"><Bell size={20}/></button></header>
         <div className="content"><Outlet /></div>
       </main>
 
