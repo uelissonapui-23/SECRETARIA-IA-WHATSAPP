@@ -1,54 +1,30 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { analyzeText } from '../_shared/analyzer.ts'
+import { analyzeText, type Candidate } from '../_shared/analyzer.ts'
+import { aiProviderConfigured, analyzeWithAi } from '../_shared/aiProvider.ts'
+
+const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}})
+const merge=(rules:Candidate[],ai:Candidate[],allowMultiple:boolean)=>{const map=new Map<string,Candidate>();for(const x of [...ai,...rules]){const old=map.get(x.type);if(!old||x.confidence>old.confidence)map.set(x.type,x)}const out=[...map.values()].sort((a,b)=>b.confidence-a.confidence);return allowMultiple?out:out.slice(0,1)}
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
-  const started=Date.now()
-  const secret=Deno.env.get('WORKER_SECRET')??''
-  if(!secret)return new Response('Worker not configured',{status:503})
-  if(req.headers.get('x-worker-secret')!==secret)return new Response('Unauthorized',{status:401})
-  const body=await req.json().catch(()=>({})) as {message_id?:string;source?:'message'|'reprocess'}
-  if(!body.message_id)return new Response(JSON.stringify({error:'message_id required'}),{status:400,headers:{'content-type':'application/json'}})
-
-  const supabase=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')??Deno.env.get('SUPABASE_SECRET_KEY')!)
-  const{data:message,error}=await supabase.from('messages').select('*').eq('id',body.message_id).single()
-  if(error||!message)return new Response(JSON.stringify({error:'message not found'}),{status:404,headers:{'content-type':'application/json'}})
-
-  let runId:string|undefined
+  const started=Date.now();const secret=Deno.env.get('WORKER_SECRET')??''
+  if(!secret)return new Response('Worker not configured',{status:503});if(req.headers.get('x-worker-secret')!==secret)return new Response('Unauthorized',{status:401})
+  const body=await req.json().catch(()=>({})) as {message_id?:string;source?:'message'|'reprocess'};if(!body.message_id)return json({error:'message_id required'},400)
+  const supabase=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')??Deno.env.get('SUPABASE_SECRET_KEY')!);const{data:message,error}=await supabase.from('messages').select('*').eq('id',body.message_id).single();if(error||!message)return json({error:'message not found'},404)
+  let runId:string|undefined;let engine='rules-v1';let fallbackUsed=false;let provider:string|undefined;let model:string|undefined;let promptTokens=0;let completionTokens=0;let totalTokens=0;let estimatedCostUsd=0
   try{
     await supabase.from('message_jobs').update({status:'processing',last_attempt_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id)
-    const[{data:policy},{data:settings}]=await Promise.all([
-      supabase.from('analysis_policies').select('*').eq('company_id',message.company_id).maybeSingle(),
-      supabase.from('company_settings').select('*').eq('company_id',message.company_id).maybeSingle(),
-    ])
-    if(!message.eligible_for_ai||!message.body_text){
-      await supabase.from('analysis_runs').insert({company_id:message.company_id,message_id:message.id,source:body.source??'message',engine:'rules-v1',status:'skipped',duration_ms:Date.now()-started})
-      await supabase.from('message_jobs').update({status:'done',completed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id)
-      return new Response(JSON.stringify({skipped:true}),{headers:{'content-type':'application/json'}})
-    }
-    const contextLimit=Math.max(1,Math.min(12,Number(policy?.context_messages??5)))
-    const{data:contextRows}=await supabase.from('messages').select('id,body_text,provider_timestamp').eq('conversation_id',message.conversation_id).eq('message_type','text').lt('created_at',message.created_at).order('created_at',{ascending:false}).limit(contextLimit)
-    const context=(contextRows??[]).reverse();const contextText=context.map(row=>row.body_text).filter(Boolean).join('\n')
-    let memories:Array<{content:string}> = []
-    if(policy?.use_company_memory!==false||policy?.use_contact_memory!==false){
-      let q=supabase.from('operational_memories').select('content,contact_id').eq('company_id',message.company_id).eq('is_active',true).order('importance',{ascending:false}).order('created_at',{ascending:false}).limit(12)
-      const{data}=await q;memories=(data??[]).filter((m:any)=>(policy?.use_company_memory!==false&&m.contact_id===null)||(policy?.use_contact_memory!==false&&m.contact_id===message.contact_id))
-    }
-    const candidates=analyzeText(message.body_text,contextText,memories.map(m=>m.content).join('\n'),{minConfidence:Number(policy?.min_confidence??.65),allowMultiple:policy?.allow_multiple_suggestions!==false,monitors:settings??{}})
-    const{data:run}=await supabase.from('analysis_runs').insert({company_id:message.company_id,message_id:message.id,source:body.source??'message',engine:'rules-v1',status:'done',context_count:context.length,memory_count:memories.length,candidates:candidates.length,suggestions_created:0,duration_ms:0}).select('id').single();runId=run?.id
-    let created=0
-    for(const detected of candidates){
-      const{error:insertError}=await supabase.from('ai_suggestions').insert({company_id:message.company_id,contact_id:message.contact_id,conversation_id:message.conversation_id,source_message_id:message.id,context_message_ids:context.map(row=>row.id),type:detected.type,title:detected.title,summary:detected.summary,reason:detected.reason,confidence:detected.confidence,extracted_data:detected.extracted_data})
-      if(!insertError)created++
-    }
-    if(runId)await supabase.from('analysis_runs').update({suggestions_created:created,duration_ms:Date.now()-started}).eq('id',runId)
-    await supabase.from('message_jobs').update({status:'done',last_error:null,failure_class:null,completed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id)
-    await supabase.from('audit_logs').insert({company_id:message.company_id,action:'message_analyzed',entity_type:'message',entity_id:message.id,metadata:{engine:'rules-v1',candidates:candidates.length,suggestions_created:created}})
-    return new Response(JSON.stringify({ok:true,engine:'rules-v1',candidates:candidates.length,suggestions_created:created}),{headers:{'content-type':'application/json'}})
-  }catch(e){
-    const code=e instanceof Error?e.name:'analysis_error'
-    try{await supabase.from('analysis_runs').insert({company_id:message.company_id,message_id:message.id,source:body.source??'message',engine:'rules-v1',status:'error',duration_ms:Date.now()-started,error_code:code})}catch{/* telemetria não pode derrubar o worker */}
-    try{const{data:job}=await supabase.from('message_jobs').select('attempts,max_attempts').eq('message_id',message.id).maybeSingle();const attempts=Number(job?.attempts??0)+1;await supabase.from('message_jobs').update({status:'failed',attempts,last_error:code,failure_class:attempts>=Number(job?.max_attempts??3)?'exhausted':'retryable',last_attempt_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id)}catch{/* melhor esforço */}
-    return new Response(JSON.stringify({error:'analysis_failed'}),{status:500,headers:{'content-type':'application/json'}})
-  }
+    const[{data:policy},{data:settings}]=await Promise.all([supabase.from('analysis_policies').select('*').eq('company_id',message.company_id).maybeSingle(),supabase.from('company_settings').select('*').eq('company_id',message.company_id).maybeSingle()])
+    if(!message.eligible_for_ai||!message.body_text){await supabase.from('analysis_runs').insert({company_id:message.company_id,message_id:message.id,source:body.source??'message',engine,status:'skipped',duration_ms:Date.now()-started});await supabase.from('message_jobs').update({status:'done',completed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id);return json({skipped:true})}
+    const contextLimit=Math.max(1,Math.min(12,Number(policy?.context_messages??5)));const{data:contextRows}=await supabase.from('messages').select('id,body_text,provider_timestamp').eq('conversation_id',message.conversation_id).eq('message_type','text').lt('created_at',message.created_at).order('created_at',{ascending:false}).limit(contextLimit);const context=(contextRows??[]).reverse();const contextText=context.map(row=>row.body_text).filter(Boolean).join('\n')
+    let memories:Array<{content:string}> = [];if(policy?.use_company_memory!==false||policy?.use_contact_memory!==false){const{data}=await supabase.from('operational_memories').select('content,contact_id').eq('company_id',message.company_id).eq('is_active',true).order('importance',{ascending:false}).order('created_at',{ascending:false}).limit(12);memories=(data??[]).filter((m:any)=>(policy?.use_company_memory!==false&&m.contact_id===null)||(policy?.use_contact_memory!==false&&m.contact_id===message.contact_id))}
+    const memoryText=memories.map(m=>m.content).join('\n');const opts={minConfidence:Number(policy?.min_confidence??.65),allowMultiple:policy?.allow_multiple_suggestions!==false,monitors:settings??{}};const rules=analyzeText(message.body_text,contextText,memoryText,opts);let candidates=rules
+    const mode=String(policy?.engine_mode??'rules');const wantsAi=policy?.ai_enabled===true&&(mode==='hybrid'||mode==='llm');let aiAllowed=wantsAi&&aiProviderConfigured()
+    if(aiAllowed){const day=new Date();day.setUTCHours(0,0,0,0);const{data:usage}=await supabase.from('analysis_runs').select('total_tokens,estimated_cost_usd').eq('company_id',message.company_id).gte('created_at',day.toISOString());const usedTokens=(usage??[]).reduce((n:any,r:any)=>n+Number(r.total_tokens??0),0);const usedCost=(usage??[]).reduce((n:any,r:any)=>n+Number(r.estimated_cost_usd??0),0);aiAllowed=usedTokens<Number(policy?.ai_daily_token_limit??50000)&&usedCost<Number(policy?.ai_daily_cost_limit_usd??1)}
+    if(aiAllowed){try{const ai=await analyzeWithAi({text:message.body_text,context:contextText,memory:memoryText,minConfidence:opts.minConfidence,allowMultiple:opts.allowMultiple,maxCandidates:Number(policy?.ai_max_candidates??4)});provider=ai.provider;model=ai.model;promptTokens=ai.usage.promptTokens;completionTokens=ai.usage.completionTokens;totalTokens=ai.usage.totalTokens;estimatedCostUsd=ai.usage.estimatedCostUsd;engine=mode==='hybrid'?'hybrid-v1':'llm-v1';candidates=mode==='hybrid'?merge(rules,ai.candidates,opts.allowMultiple):ai.candidates}catch(e){if(policy?.fallback_to_rules===false&&mode==='llm')throw e;fallbackUsed=true;engine='rules-fallback-v1';candidates=rules}}
+    else if(wantsAi){fallbackUsed=true;engine='rules-fallback-v1'}
+    const{data:run}=await supabase.from('analysis_runs').insert({company_id:message.company_id,message_id:message.id,source:body.source??'message',engine,status:'done',context_count:context.length,memory_count:memories.length,candidates:candidates.length,suggestions_created:0,duration_ms:0,provider,model,prompt_tokens:promptTokens,completion_tokens:completionTokens,total_tokens:totalTokens,estimated_cost_usd:estimatedCostUsd,fallback_used:fallbackUsed}).select('id').single();runId=run?.id
+    let created=0;for(const detected of candidates){const{error:insertError}=await supabase.from('ai_suggestions').insert({company_id:message.company_id,contact_id:message.contact_id,conversation_id:message.conversation_id,source_message_id:message.id,context_message_ids:context.map(row=>row.id),type:detected.type,title:detected.title,summary:detected.summary,reason:detected.reason,confidence:detected.confidence,extracted_data:detected.extracted_data});if(!insertError)created++}
+    if(runId)await supabase.from('analysis_runs').update({suggestions_created:created,duration_ms:Date.now()-started}).eq('id',runId);await supabase.from('message_jobs').update({status:'done',last_error:null,failure_class:null,completed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id);await supabase.from('audit_logs').insert({company_id:message.company_id,action:'message_analyzed',entity_type:'message',entity_id:message.id,metadata:{engine,candidates:candidates.length,suggestions_created:created,fallback_used:fallbackUsed,total_tokens:totalTokens}});return json({ok:true,engine,candidates:candidates.length,suggestions_created:created,fallback_used:fallbackUsed})
+  }catch(e){const code=e instanceof Error?e.message||e.name:'analysis_error';try{await supabase.from('analysis_runs').insert({company_id:message.company_id,message_id:message.id,source:body.source??'message',engine,status:'error',duration_ms:Date.now()-started,error_code:String(code).slice(0,120),provider,model,prompt_tokens:promptTokens,completion_tokens:completionTokens,total_tokens:totalTokens,estimated_cost_usd:estimatedCostUsd,fallback_used:fallbackUsed})}catch{}try{const{data:job}=await supabase.from('message_jobs').select('attempts,max_attempts').eq('message_id',message.id).maybeSingle();const attempts=Number(job?.attempts??0)+1;await supabase.from('message_jobs').update({status:'failed',attempts,last_error:String(code).slice(0,240),failure_class:attempts>=Number(job?.max_attempts??3)?'exhausted':'retryable',last_attempt_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id)}catch{}return json({error:'analysis_failed'},500)}
 })
