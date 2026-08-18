@@ -1,6 +1,7 @@
-import { CheckCircle2, CircleAlert, Clock3, Link2, MessageCircle, RefreshCw, ShieldCheck, Unplug, Wifi } from 'lucide-react'
+import { CheckCircle2, CircleAlert, Clock3, FlaskConical, Link2, MessageCircle, RefreshCw, ShieldCheck, Unplug, Wifi } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCompany } from '../company/CompanyProvider'
+import { ValidationConnectorPanel } from '../components/ValidationConnectorPanel'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../utils/errorMessage'
 import { metaSignupConfigured, startWhatsAppEmbeddedSignup, type MetaSignupDiagnostic } from '../whatsapp/metaEmbeddedSignup'
@@ -55,6 +56,7 @@ export function WhatsAppPage() {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [metaDiagnostics, setMetaDiagnostics] = useState<MetaSignupDiagnostic[]>([])
+  const [channelMode, setChannelMode] = useState<'validation' | 'meta'>('validation')
 
   const canManage = currentMembership?.role === 'owner' || currentMembership?.role === 'admin'
   const connected = connection?.status === 'connected'
@@ -71,6 +73,7 @@ export function WhatsAppPage() {
   }, [currentCompany])
 
   useEffect(() => { void load() }, [load])
+  useEffect(() => { if (connected) setChannelMode('meta') }, [connected])
 
   const status = useMemo(() => {
     if (loading) return { label: 'Verificando', className: 'neutral' }
@@ -124,8 +127,17 @@ export function WhatsAppPage() {
   }
 
   return <section>
-    <div className="page-heading whatsapp-heading"><div><span className="eyebrow">WHATSAPP</span><h1>Conexão segura com o WhatsApp Business</h1><p>Usamos o modo oficial de coexistência: o cliente continua usando o WhatsApp Business e a Secretária recebe os eventos autorizados pela Meta.</p></div><span className={`connection-pill ${status.className}`}>{connected ? <Wifi size={15}/> : <Unplug size={15}/>} {status.label}</span></div>
+    <div className="page-heading whatsapp-heading"><div><span className="eyebrow">CONVERSAS</span><h1>Escolha como testar a Secretária</h1><p>Valide o valor do produto agora com conversas autorizadas. A integração oficial da Meta fica preservada e pode ser retomada quando a empresa estiver pronta para a liberação comercial.</p></div><span className={`connection-pill ${status.className}`}>{connected ? <Wifi size={15}/> : <Unplug size={15}/>} {connected ? 'Meta conectada' : 'Meta pausada'}</span></div>
 
+    <div className="channel-mode-tabs" role="tablist" aria-label="Canal de mensagens">
+      <button type="button" className={channelMode === 'validation' ? 'active' : ''} onClick={()=>setChannelMode('validation')}><FlaskConical size={17}/> Validar agora <small>sem depender da Meta</small></button>
+      <button type="button" className={channelMode === 'meta' ? 'active' : ''} onClick={()=>setChannelMode('meta')}><MessageCircle size={17}/> Meta oficial <small>{connected ? 'conectada' : 'pausada'}</small></button>
+    </div>
+
+    {channelMode === 'validation' && currentCompany && <ValidationConnectorPanel companyId={currentCompany.id} canManage={canManage}/>}
+
+    {channelMode === 'meta' && <>
+      {!connected && <div className="meta-paused-banner"><ShieldCheck size={20}/><div><strong>Integração oficial preservada</strong><span>Não apagamos nenhuma base da Meta. Esta trilha fica pausada até a formalização/verificação necessária para o onboarding comercial. Você pode continuar desenvolvendo e validando o produto sem automação não oficial do WhatsApp Web.</span></div></div>}
     <div className="whatsapp-layout">
       <div className="whatsapp-main-card">
         <div className="whatsapp-card-head"><div className="whatsapp-icon"><MessageCircle size={26}/></div><div><h2>{connected ? 'WhatsApp conectado' : 'Conecte seu WhatsApp Business'}</h2><p>{connected ? 'A Secretária está conectada sem tirar o número do WhatsApp Business.' : 'A conexão só é concluída quando a Meta confirma o modo de coexistência. Não usamos migração tradicional como caminho padrão.'}</p></div></div>
@@ -152,5 +164,6 @@ export function WhatsAppPage() {
 
       <aside className="whatsapp-side-card"><span className="eyebrow">MODO OBSERVAÇÃO</span><h2>O que acontece depois da conexão?</h2><ul className="behavior-list"><li><CheckCircle2 size={18}/><span><strong>Novas mensagens em texto</strong> passam pelo pipeline da Secretária.</span></li><li><Clock3 size={18}/><span><strong>Mensagens antigas</strong> não são importadas para análise retroativa.</span></li><li><ShieldCheck size={18}/><span><strong>Áudios e mídias</strong> ficam fora da análise nesta versão.</span></li><li><MessageCircle size={18}/><span><strong>Nenhuma resposta automática</strong> é enviada ao cliente.</span></li></ul><div className="privacy-box"><strong>Controle humano</strong><span>A IA identifica e sugere. O empresário confirma, edita ou ignora.</span></div></aside>
     </div>
+    </>}
   </section>
 }

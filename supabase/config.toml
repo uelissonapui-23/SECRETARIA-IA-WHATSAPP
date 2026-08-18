@@ -40,3 +40,6 @@ verify_jwt = false
 
 [functions.analysis-evaluation]
 verify_jwt = false
+
+[functions.validation-import]
+verify_jwt = false
