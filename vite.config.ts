@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'Secretária IA',
-        short_name: 'Secretária IA',
+        name: 'evoria Secretaria IA',
+        short_name: 'evoria',
         description: 'Organiza compromissos e pendências a partir das novas conversas da empresa.',
         theme_color: '#0f172a',
         background_color: '#f8fafc',

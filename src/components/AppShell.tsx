@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { formatDateTime } from '../lib/format'
+import { BrandIdentity } from './BrandIdentity'
 
 const baseItems = [
   { to: '/', label: 'Início', icon: Home },
@@ -78,7 +79,7 @@ export function AppShell() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand"><div className="brand-mark">S</div><div><strong>Secretária IA</strong><span>Organização inteligente</span></div></div>
+        <BrandIdentity context="Organização inteligente" />
         <nav>{items.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={19} /><span>{label}</span></NavLink>)}</nav>
         <button type="button" className="sidebar-logout" onClick={logout} disabled={busy}><LogOut size={18}/><span>{busy?'Saindo...':'Sair'}</span></button>
       </aside>

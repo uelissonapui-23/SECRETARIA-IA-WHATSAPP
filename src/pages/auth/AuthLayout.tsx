@@ -1,10 +1,11 @@
 import { Outlet } from 'react-router-dom'
+import { BrandIdentity } from '../../components/BrandIdentity'
 
 export function AuthLayout() {
   return (
     <main className="auth-page">
       <section className="auth-panel">
-        <div className="auth-brand"><div className="brand-mark large">S</div><div><strong>Secretária IA</strong><span>Sua empresa organizada a partir das conversas.</span></div></div>
+        <BrandIdentity variant="large" context="Sua empresa organizada a partir das conversas." />
         <Outlet />
       </section>
       <aside className="auth-aside">
