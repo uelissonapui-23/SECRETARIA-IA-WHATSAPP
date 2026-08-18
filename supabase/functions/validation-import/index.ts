@@ -27,17 +27,47 @@ function cleanText(value: unknown, limit: number) {
   return String(value ?? '').trim().slice(0, limit)
 }
 
-async function verifyAccess(url: string, anon: string, service: string, token: string, companyId: string) {
-  const authClient = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } })
-  const { data: { user }, error } = await authClient.auth.getUser(token)
-  if (error || !user) return { allowed: false, user: null as null | { id: string }, role: null as string | null }
-  const admin = createClient(url, service, { auth: { persistSession: false } })
-  const [{ data: membership }, { data: company }] = await Promise.all([
-    admin.from('company_members').select('role').eq('company_id', companyId).eq('user_id', user.id).maybeSingle(),
-    admin.from('companies').select('created_by').eq('id', companyId).maybeSingle(),
-  ])
-  const role = membership?.role ?? (company?.created_by === user.id ? 'owner' : null)
-  return { allowed: role === 'owner' || role === 'admin', user, role }
+async function verifyAccess(url: string, anon: string, token: string, companyId: string) {
+  // A autorização deve usar o próprio JWT do usuário e as políticas RLS,
+  // exatamente como o frontend faz. Isso evita depender da service-role
+  // para descobrir o papel do usuário e evita falsos 403 caso uma chave
+  // administrativa seja rotacionada/indisponível.
+  const authClient = createClient(url, anon, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false },
+  })
+
+  const { data: { user }, error: userError } = await authClient.auth.getUser(token)
+  if (userError || !user) {
+    console.warn('[validation-import] auth-user-failed', { message: userError?.message ?? 'user_not_found' })
+    return { allowed: false, user: null as null | { id: string }, role: null as string | null, reason: 'unauthorized' }
+  }
+
+  const { data: membership, error: membershipError } = await authClient
+    .from('company_members')
+    .select('role')
+    .eq('company_id', companyId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (membershipError) {
+    console.error('[validation-import] membership-query-failed', {
+      company_id: companyId,
+      user_id: user.id,
+      code: membershipError.code,
+      message: membershipError.message,
+    })
+    return { allowed: false, user, role: null as string | null, reason: 'membership_query_failed' }
+  }
+
+  const role = membership?.role ?? null
+  console.info('[validation-import] membership-check', {
+    company_id: companyId,
+    user_id: user.id,
+    role,
+    allowed: role === 'owner' || role === 'admin',
+  })
+  return { allowed: role === 'owner' || role === 'admin', user, role, reason: role ? 'role_not_allowed' : 'membership_not_found' }
 }
 
 Deno.serve(async (req) => {
@@ -57,9 +87,12 @@ Deno.serve(async (req) => {
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEY') ?? ''
     if (!url || !anon || !service) return json({ error: 'server_not_configured' }, 503)
 
-    const access = await verifyAccess(url, anon, service, token, companyId)
+    const access = await verifyAccess(url, anon, token, companyId)
     if (!access.user) return json({ error: 'unauthorized' }, 401)
-    if (!access.allowed) return json({ error: 'not_company_admin' }, 403)
+    if (!access.allowed) {
+      if (access.reason === 'membership_query_failed') return json({ error: 'membership_query_failed' }, 500)
+      return json({ error: 'not_company_admin', role: access.role }, 403)
+    }
 
     const admin = createClient(url, service, { auth: { persistSession: false } })
 

@@ -25,6 +25,27 @@ type LiveTurn = {
   state: 'waiting' | 'sending' | 'done' | 'error'
 }
 
+async function validationInvokeErrorMessage(error: unknown) {
+  const context = (error as { context?: Response } | null)?.context
+  if (context && typeof context.clone === 'function') {
+    try {
+      const payload = await context.clone().json() as { error?: string; role?: string | null }
+      if (payload?.error) {
+        if (payload.error === 'not_company_admin') {
+          return payload.role
+            ? `Seu papel atual nesta empresa é "${payload.role}". Somente proprietário ou administrador pode executar a validação.`
+            : 'Sua conta não foi reconhecida como proprietária ou administradora desta empresa.'
+        }
+        if (payload.error === 'membership_query_failed') {
+          return 'Não foi possível validar sua permissão na empresa. Consulte os logs da função validation-import.'
+        }
+        return payload.error
+      }
+    } catch { /* resposta sem JSON; usa mensagem padrão */ }
+  }
+  return errorMessage(error)
+}
+
 async function invokeValidation(body: Record<string, unknown>) {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
   if (sessionError || !sessionData.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente.')
@@ -32,7 +53,7 @@ async function invokeValidation(body: Record<string, unknown>) {
     body,
     headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
   })
-  if (error) throw error
+  if (error) throw new Error(await validationInvokeErrorMessage(error))
   const response = data as ImportResponse
   if (response?.error) throw new Error(response.error)
   return response
