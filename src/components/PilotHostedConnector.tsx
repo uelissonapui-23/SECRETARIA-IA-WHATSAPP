@@ -1,25 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, Link2, RefreshCw, ShieldCheck, Unplug, Wifi } from 'lucide-react'
-import { connectPilot, disconnectPilot, getPilotStatus, pilotGatewayConfigured, type PilotGatewayStatus } from '../pilot/pilotGateway'
+import { connectPilot, disconnectPilot, getPilotStatus, PilotGatewayError, pilotGatewayConfigured, type PilotGatewayStatus } from '../pilot/pilotGateway'
 
 const empty: PilotGatewayStatus = { status: 'disconnected' }
 export function PilotHostedConnector({ companyId, canManage }: { companyId:string; canManage:boolean }) {
   const [state,setState]=useState<PilotGatewayStatus>(empty), [busy,setBusy]=useState(false), [error,setError]=useState('')
   const [refreshing,setRefreshing]=useState(false), [refreshNotice,setRefreshNotice]=useState('')
+  const [pollingPaused,setPollingPaused]=useState(false)
   const refresh=useCallback(async(silent=true)=>{
     if(!pilotGatewayConfigured()) return
     if(!silent){setRefreshing(true);setRefreshNotice('')}
     try{
-      setState(await getPilotStatus(companyId));setError('')
+      setState(await getPilotStatus(companyId));setError('');setPollingPaused(false)
       if(!silent)setRefreshNotice('Status atualizado agora.')
     }catch(e){
       setError(e instanceof Error?e.message:'gateway_error')
+      if(e instanceof PilotGatewayError&&e.permanent)setPollingPaused(true)
       if(!silent)setRefreshNotice('')
     }finally{
       if(!silent)setRefreshing(false)
     }
   },[companyId])
-  useEffect(()=>{void refresh(true); const id=window.setInterval(()=>void refresh(true), state.status==='qr_ready'||state.status==='connecting'?2500:10000); return()=>window.clearInterval(id)},[refresh,state.status])
+  useEffect(()=>{if(pollingPaused)return;void refresh(true);const id=window.setInterval(()=>void refresh(true),state.status==='qr_ready'||state.status==='connecting'?2500:10000);return()=>window.clearInterval(id)},[pollingPaused,refresh,state.status])
   async function connect(){setBusy(true);setError('');try{setState(await connectPilot(companyId))}catch(e){setError(e instanceof Error?e.message:'gateway_error')}finally{setBusy(false)}}
   async function disconnect(){if(!window.confirm('Desconectar o WhatsApp piloto e apagar as credenciais vinculadas desta empresa?'))return;setBusy(true);try{await disconnectPilot(companyId);setState(empty)}catch(e){setError(e instanceof Error?e.message:'gateway_error')}finally{setBusy(false)}}
   if(!pilotGatewayConfigured()) return <div className="integration-warning"><ShieldCheck size={18}/><div><strong>Gateway hospedado ainda não publicado</strong><span>Depois do primeiro deploy no Railway, configure VITE_PILOT_GATEWAY_URL na Vercel. A integração Meta permanece preservada.</span></div></div>

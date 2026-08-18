@@ -23,9 +23,10 @@ async function authReq(req: express.Request, res: express.Response) {
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!companyId || !token) { res.status(401).json({ error: 'unauthorized' }); return null }
   const access = await authorize(token, companyId)
-  if (!access) {
-    console.warn('[pilot-gateway] request-forbidden', { company_id: companyId, method: req.method, path: req.path })
-    res.status(403).json({ error: 'forbidden' })
+  if (!access.allowed) {
+    const statusCode = access.reason === 'invalid_user_token' ? 401 : 403
+    console.warn('[pilot-gateway] request-rejected', { company_id: companyId, method: req.method, path: req.path, reason: access.reason })
+    res.status(statusCode).json({ error: statusCode === 401 ? 'unauthorized' : 'forbidden', reason: access.reason, role: access.role ?? null })
     return null
   }
   return { companyId, ...access }
