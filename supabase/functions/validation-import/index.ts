@@ -8,6 +8,7 @@ type ImportedMessage = {
   body: string
   timestamp?: string | null
   author?: string | null
+  provider_message_id?: string | null
 }
 
 type ImportInput = {
@@ -17,6 +18,7 @@ type ImportInput = {
   contact_phone?: string
   messages?: ImportedMessage[]
   analyze_last_inbound?: boolean
+  source?: 'validation' | 'pilot_whatsapp_web'
 }
 
 function cleanPhone(value: string) {
@@ -118,6 +120,7 @@ Deno.serve(async (req) => {
         body: cleanText(message.body, 4000),
         timestamp: message.timestamp ? String(message.timestamp) : null,
         author: cleanText(message.author, 120) || null,
+        provider_message_id: cleanText(message.provider_message_id, 180) || null,
       }))
       .filter((message) => message.body)
 
@@ -134,7 +137,10 @@ Deno.serve(async (req) => {
       .upsert(contactPayload, { onConflict: 'company_id,whatsapp_id' })
       .select('id')
       .single()
-    if (contactError || !contact) return json({ error: 'contact_import_failed' }, 500)
+    if (contactError || !contact) {
+      console.error('[validation-import] contact-import-failed', { company_id: companyId, code: contactError?.code ?? null, message: contactError?.message ?? null, details: contactError?.details ?? null, hint: contactError?.hint ?? null })
+      return json({ error: 'contact_import_failed', code: contactError?.code ?? null }, 500)
+    }
 
     const sessionId = crypto.randomUUID()
     const latestTimestamp = messages.map((message) => message.timestamp ? new Date(message.timestamp) : new Date()).sort((a, b) => b.getTime() - a.getTime())[0] ?? new Date()
@@ -158,7 +164,7 @@ Deno.serve(async (req) => {
         company_id: companyId,
         conversation_id: conversationId,
         contact_id: contact.id,
-        provider_message_id: `validation:${sessionId}:${index}`,
+        provider_message_id: message.provider_message_id || `validation:${sessionId}:${index}`,
         direction: message.direction,
         message_type: 'text',
         body_text: message.body,
@@ -166,7 +172,12 @@ Deno.serve(async (req) => {
         raw_payload: { _secretaria_source: 'validation_import', validation_session_id: sessionId, author: message.author },
         eligible_for_ai: eligible,
       }).select('id').single()
-      if (insertError || !inserted) return json({ error: 'message_import_failed', imported: insertedIds.length }, 500)
+      if (insertError) {
+        if (insertError.code === '23505' && message.provider_message_id) continue
+        console.error('[validation-import] message-import-failed', { company_id: companyId, code: insertError.code, message: insertError.message, details: insertError.details })
+        return json({ error: 'message_import_failed', imported: insertedIds.length }, 500)
+      }
+      if (!inserted) return json({ error: 'message_import_failed', imported: insertedIds.length }, 500)
       insertedIds.push(inserted.id)
       if (eligible) analysisMessageId = inserted.id
     }
@@ -193,7 +204,7 @@ Deno.serve(async (req) => {
       action: 'validation_conversation_imported',
       entity_type: 'validation',
       entity_id: analysisMessageId,
-      metadata: { session_id: sessionId, messages_imported: insertedIds.length, analyzed_last_inbound: Boolean(analysisMessageId), source: 'whatsapp_export_or_manual' },
+      metadata: { session_id: sessionId, messages_imported: insertedIds.length, analyzed_last_inbound: Boolean(analysisMessageId), source: input.source === 'pilot_whatsapp_web' ? 'pilot_whatsapp_web' : 'whatsapp_export_or_manual' },
     })
 
     return json({ ok: true, session_id: sessionId, imported: insertedIds.length, analyzed: Boolean(analysisMessageId), analysis })

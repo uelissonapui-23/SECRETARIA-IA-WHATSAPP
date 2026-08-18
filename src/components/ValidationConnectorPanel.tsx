@@ -1,9 +1,10 @@
 import { Bot, CheckCircle2, FileText, MessageSquareText, Play, ShieldCheck, Sparkles, Trash2, Upload, WandSparkles } from 'lucide-react'
-import { type ChangeEvent, type FormEvent, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { chatAuthors, normalizeImportedMessages, parseWhatsAppExport, validationContactName } from '../validation/chatImport'
 import { scenarioById, simulationScenarios, type SimulationScenario } from '../validation/simulator'
+import { validPilotMessages } from '../validation/pilotBridge'
 import { errorMessage } from '../utils/errorMessage'
 
 type Props = {
@@ -65,7 +66,7 @@ function wait(ms: number) {
 
 export function ValidationConnectorPanel({ companyId, canManage }: Props) {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<'simulator' | 'quick' | 'import'>('simulator')
+  const [mode, setMode] = useState<'pilot' | 'simulator' | 'quick' | 'import'>('pilot')
   const [scenarioId, setScenarioId] = useState<SimulationScenario['id']>('appointment')
   const [liveTurns, setLiveTurns] = useState<LiveTurn[]>([])
   const [simulationRunning, setSimulationRunning] = useState(false)
@@ -79,11 +80,50 @@ export function ValidationConnectorPanel({ companyId, canManage }: Props) {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const [pilotInstalled, setPilotInstalled] = useState(false)
+  const [pilotReceived, setPilotReceived] = useState(0)
+  const [pilotLastContact, setPilotLastContact] = useState('')
+  const pilotProcessingRef = useRef(false)
 
   const scenario = useMemo(() => scenarioById(scenarioId), [scenarioId])
   const parsed = useMemo(() => parseWhatsAppExport(rawChat), [rawChat])
   const authors = useMemo(() => chatAuthors(parsed), [parsed])
   const inboundCount = useMemo(() => myAuthor ? parsed.filter((message) => message.author !== myAuthor).length : 0, [myAuthor, parsed])
+
+  useEffect(() => {
+    const onStatus = () => setPilotInstalled(true)
+    const onMessages = async (event: Event) => {
+      if (!canManage || pilotProcessingRef.current) return
+      const messages = validPilotMessages((event as CustomEvent).detail)
+      if (!messages.length) return
+      pilotProcessingRef.current = true
+      setPilotInstalled(true); setError('')
+      try {
+        let imported = 0, suggestions = 0
+        for (const message of messages) {
+          const response = await invokeValidation({
+            company_id: companyId, action: 'import', contact_name: message.contact_name,
+            messages: [{ direction: 'inbound', body: message.body, author: message.contact_name, timestamp: message.captured_at, provider_message_id: `pilot-web:${message.id}` }],
+            analyze_last_inbound: true, source: 'pilot_whatsapp_web',
+          })
+          imported += Number(response.imported ?? 1)
+          suggestions += Number(response.analysis?.suggestions_created ?? 0)
+          setPilotLastContact(message.contact_name)
+        }
+        setPilotReceived(current => current + imported)
+        setNotice(suggestions > 0 ? `Piloto real: ${imported} mensagem(ns) analisada(s) e ${suggestions} sugestão(ões) criada(s).` : `Piloto real: ${imported} mensagem(ns) recebida(s) e analisada(s).`)
+      } catch (err) { setError(errorMessage(err)) }
+      finally { pilotProcessingRef.current = false }
+    }
+    window.addEventListener('secretaria:pilot-whatsapp-status', onStatus)
+    window.addEventListener('secretaria:pilot-whatsapp-messages', onMessages)
+    window.dispatchEvent(new CustomEvent('secretaria:pilot-request-status'))
+    return () => {
+      window.removeEventListener('secretaria:pilot-whatsapp-status', onStatus)
+      window.removeEventListener('secretaria:pilot-whatsapp-messages', onMessages)
+    }
+  }, [canManage, companyId])
+
 
   function resetMessages() {
     setNotice('')
@@ -214,10 +254,19 @@ export function ValidationConnectorPanel({ companyId, canManage }: Props) {
     </div>
 
     <div className="validation-mode-tabs" role="tablist" aria-label="Forma de validação">
+      <button type="button" className={mode === 'pilot' ? 'active' : ''} onClick={()=>{setMode('pilot');resetMessages()}}><MessageSquareText size={17}/> Piloto real</button>
       <button type="button" className={mode === 'simulator' ? 'active' : ''} onClick={()=>{setMode('simulator');resetMessages()}}><Sparkles size={17}/> Simulação automática</button>
       <button type="button" className={mode === 'quick' ? 'active' : ''} onClick={()=>{setMode('quick');resetMessages()}}><WandSparkles size={17}/> Mensagem manual</button>
       <button type="button" className={mode === 'import' ? 'active' : ''} onClick={()=>{setMode('import');resetMessages()}}><FileText size={17}/> Conversa exportada</button>
     </div>
+
+    {mode === 'pilot' && <div className="validation-card validation-simulator">
+      <div className="validation-card-head"><div><span className="eyebrow">PILOTO COM WHATSAPP REAL</span><h3>Leia mensagens reais sem responder clientes</h3><p>A ponte local entrega mensagens recebidas visíveis no WhatsApp Web ao mesmo pipeline da Secretária. Nenhuma mensagem é enviada.</p></div><span className="validation-safe-pill"><ShieldCheck size={15}/> {pilotInstalled ? 'Ponte detectada' : 'Instale a ponte local'}</span></div>
+      <div className="validation-how"><div><span>1</span><strong>WhatsApp Web</strong><small>O cliente atende normalmente.</small></div><div><span>2</span><strong>Leitura visível</strong><small>Somente mensagens recebidas renderizadas.</small></div><div><span>3</span><strong>Secretária organiza</strong><small>Ela sugere; o usuário decide.</small></div></div>
+      <div className="validation-result-card"><strong>{pilotReceived} mensagem(ns) recebida(s) neste acesso</strong><span>{pilotLastContact ? `Último contato: ${pilotLastContact}.` : 'Mantenha WhatsApp Web e Secretária IA abertos.'}</span></div>
+      <div className="validation-actions"><button type="button" className="secondary-button" onClick={()=>navigate('/secretaria')}><WandSparkles size={17}/> Abrir Central da Secretária</button></div>
+      <div className="validation-note"><ShieldCheck size={17}/><span><strong>Limite do piloto:</strong> o WhatsApp Web não oferece API pública para ler todos os chats. Esta ponte não clica em conversas nem promete capturar conteúdo que não foi renderizado. A integração oficial Meta continua sendo o destino de produção.</span></div>
+    </div>}
 
     {mode === 'simulator' && <div className="validation-card validation-simulator">
       <div className="validation-card-title"><Sparkles size={20}/><div><h3>Simulação automática de atendimento</h3><p>Escolha um tipo de situação e clique uma vez. O restante acontece sozinho.</p></div></div>

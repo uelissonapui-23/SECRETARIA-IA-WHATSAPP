@@ -1,0 +1,2 @@
+import{describe,expect,it}from'vitest';import{validPilotMessages}from'./pilotBridge';
+describe('pilot bridge',()=>{it('aceita somente fonte de leitura',()=>{expect(validPilotMessages({items:[{id:'1',contact_name:'Carlos',body:'Amanhã 15h',captured_at:new Date().toISOString(),source:'whatsapp_web_visible_readonly'}]})).toHaveLength(1)});it('rejeita vazio',()=>{expect(validPilotMessages({items:[{id:'1',contact_name:'C',body:' ',captured_at:'x',source:'whatsapp_web_visible_readonly'}]})).toHaveLength(0)})})

@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Secretária IA — Piloto WhatsApp Web",
+  "version": "0.1.0",
+  "description": "Ponte local somente leitura para validação comercial.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://web.whatsapp.com/*","https://*.vercel.app/*","http://localhost:*/*","http://127.0.0.1:*/*"],
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [
+    {"matches":["https://web.whatsapp.com/*"],"js":["whatsapp-content.js"],"run_at":"document_idle"},
+    {"matches":["https://*.vercel.app/*","http://localhost:*/*","http://127.0.0.1:*/*"],"js":["app-content.js"],"run_at":"document_idle"}
+  ]
+}
