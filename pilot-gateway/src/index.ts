@@ -23,19 +23,12 @@ async function authReq(req: express.Request, res: express.Response) {
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!companyId || !token) { res.status(401).json({ error: 'unauthorized' }); return null }
   const access = await authorize(token, companyId)
-  if (!access.ok) {
-    if (access.reason === 'invalid_user_token') {
-      res.status(401).json({ error: 'session_expired' })
-      return null
-    }
-    if (access.reason === 'membership_query_failed' || access.reason === 'company_query_failed') {
-      res.status(500).json({ error: 'gateway_authorization_check_failed' })
-      return null
-    }
-    res.status(403).json({ error: 'company_admin_required', role: access.role ?? null })
+  if (!access) {
+    console.warn('[pilot-gateway] request-forbidden', { company_id: companyId, method: req.method, path: req.path })
+    res.status(403).json({ error: 'forbidden' })
     return null
   }
-  return { companyId, userId: access.userId, role: access.role }
+  return { companyId, ...access }
 }
 
 app.post('/v1/companies/:companyId/session', async (req, res) => { const a = await authReq(req,res); if (!a) return; await startSession(a.companyId); res.json(await status(a.companyId)) })

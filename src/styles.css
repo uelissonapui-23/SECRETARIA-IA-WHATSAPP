@@ -499,10 +499,7 @@ input,select,textarea{min-width:0}
 .pilot-qr-box div{display:grid;gap:8px}.pilot-qr-box strong{font-size:1.05rem}.pilot-qr-box span{color:var(--text-muted);line-height:1.5}
 @media(max-width:700px){.pilot-qr-box{grid-template-columns:1fr;text-align:center}.pilot-qr-box img{justify-self:center}.validation-actions>*{max-width:100%}}
 
-
-@keyframes pilot-refresh-rotate {
-  to { transform: rotate(360deg); }
-}
-.pilot-refresh-spin {
-  animation: pilot-refresh-rotate .8s linear infinite;
-}
+/* Feedback explícito do botão Atualizar no piloto hospedado. */
+.pilot-refresh-success{display:flex;align-items:center;gap:8px}
+.spin{animation:pilot-spin .8s linear infinite}
+@keyframes pilot-spin{to{transform:rotate(360deg)}}
