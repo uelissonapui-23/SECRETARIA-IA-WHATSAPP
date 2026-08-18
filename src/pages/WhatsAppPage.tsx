@@ -2,6 +2,7 @@ import { CheckCircle2, CircleAlert, Clock3, FlaskConical, Link2, MessageCircle, 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCompany } from '../company/CompanyProvider'
 import { ValidationConnectorPanel } from '../components/ValidationConnectorPanel'
+import { PilotHostedConnector } from '../components/PilotHostedConnector'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../utils/errorMessage'
 import { metaSignupConfigured, startWhatsAppEmbeddedSignup, type MetaSignupDiagnostic } from '../whatsapp/metaEmbeddedSignup'
@@ -56,7 +57,7 @@ export function WhatsAppPage() {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [metaDiagnostics, setMetaDiagnostics] = useState<MetaSignupDiagnostic[]>([])
-  const [channelMode, setChannelMode] = useState<'validation' | 'meta'>('validation')
+  const [channelMode, setChannelMode] = useState<'pilot' | 'validation' | 'meta'>('pilot')
 
   const canManage = currentMembership?.role === 'owner' || currentMembership?.role === 'admin'
   const connected = connection?.status === 'connected'
@@ -130,9 +131,12 @@ export function WhatsAppPage() {
     <div className="page-heading whatsapp-heading"><div><span className="eyebrow">CONVERSAS</span><h1>Escolha como testar a Secretária</h1><p>Valide o valor do produto agora com conversas autorizadas. A integração oficial da Meta fica preservada e pode ser retomada quando a empresa estiver pronta para a liberação comercial.</p></div><span className={`connection-pill ${status.className}`}>{connected ? <Wifi size={15}/> : <Unplug size={15}/>} {connected ? 'Meta conectada' : 'Meta pausada'}</span></div>
 
     <div className="channel-mode-tabs" role="tablist" aria-label="Canal de mensagens">
+      <button type="button" className={channelMode === 'pilot' ? 'active' : ''} onClick={()=>setChannelMode('pilot')}><Wifi size={17}/> Piloto 24h <small>WhatsApp real hospedado</small></button>
       <button type="button" className={channelMode === 'validation' ? 'active' : ''} onClick={()=>setChannelMode('validation')}><FlaskConical size={17}/> Validar agora <small>sem depender da Meta</small></button>
       <button type="button" className={channelMode === 'meta' ? 'active' : ''} onClick={()=>setChannelMode('meta')}><MessageCircle size={17}/> Meta oficial <small>{connected ? 'conectada' : 'pausada'}</small></button>
     </div>
+
+    {channelMode === 'pilot' && currentCompany && <PilotHostedConnector companyId={currentCompany.id} canManage={canManage}/>}
 
     {channelMode === 'validation' && currentCompany && <ValidationConnectorPanel companyId={currentCompany.id} canManage={canManage}/>}
 

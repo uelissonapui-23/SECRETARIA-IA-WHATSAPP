@@ -1,0 +1,29 @@
+import { supabase } from '../lib/supabase'
+
+export type PilotGatewayStatus = {
+  status: 'disconnected'|'connecting'|'qr_ready'|'connected'|'reconnecting'|'error'
+  display_phone_number?: string|null
+  last_connected_at?: string|null
+  last_message_at?: string|null
+  last_error?: string|null
+  qr_data_url?: string|null
+}
+
+function baseUrl() {
+  const value = String(import.meta.env.VITE_PILOT_GATEWAY_URL || '').replace(/\/$/, '')
+  if (!value) throw new Error('pilot_gateway_not_configured')
+  return value
+}
+async function request(companyId:string, method:string) {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('not_authenticated')
+  const response = await fetch(`${baseUrl()}/v1/companies/${encodeURIComponent(companyId)}/session`, { method, headers: { Authorization: `Bearer ${token}` } })
+  const payload = await response.json().catch(()=>({}))
+  if (!response.ok) throw new Error(payload.error || `gateway_${response.status}`)
+  return payload as PilotGatewayStatus
+}
+export const pilotGatewayConfigured = () => Boolean(import.meta.env.VITE_PILOT_GATEWAY_URL)
+export const getPilotStatus = (companyId:string) => request(companyId,'GET')
+export const connectPilot = (companyId:string) => request(companyId,'POST')
+export const disconnectPilot = (companyId:string) => request(companyId,'DELETE')

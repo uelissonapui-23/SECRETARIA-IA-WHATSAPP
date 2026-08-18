@@ -1,0 +1,35 @@
+{
+  "name": "secretaria-ia-pilot-gateway",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@supabase/supabase-js": "^2.57.0",
+    "baileys": "^7.0.0-rc.13",
+    "express": "^5.1.0",
+    "pino": "^9.9.4",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "@types/qrcode": "^1.5.5",
+    "tsx": "^4.20.5",
+    "typescript": "~5.9.2"
+  },
+  "allowScripts": {
+    "baileys@7.0.0-rc14": true,
+    "esbuild@0.28.2": true,
+    "protobufjs@7.6.5": true
+  }
+}

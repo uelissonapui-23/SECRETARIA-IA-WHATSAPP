@@ -1,0 +1,1 @@
+Esta extensão local fica preservada apenas para diagnóstico. O piloto principal passa a ser o gateway hospedado em /pilot-gateway.
