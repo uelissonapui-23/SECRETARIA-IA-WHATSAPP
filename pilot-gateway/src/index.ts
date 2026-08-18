@@ -21,10 +21,23 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'secretaria-pilo
 async function authReq(req: express.Request, res: express.Response) {
   const companyId = String(req.params.companyId || '')
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
-  if (!companyId || !token) { res.status(401).json({ error: 'unauthorized' }); return null }
+  if (!companyId || !token) {
+    res.status(401).json({ error: 'unauthorized', reason: 'missing_credentials' })
+    return null
+  }
+
   const access = await authorize(token, companyId)
-  if (!access) { res.status(403).json({ error: 'forbidden' }); return null }
-  return { companyId, ...access }
+  if (!access.allowed) {
+    const statusCode = access.reason === 'invalid_user_token' ? 401 : 403
+    res.status(statusCode).json({
+      error: statusCode === 401 ? 'unauthorized' : 'forbidden',
+      reason: access.reason,
+      role: access.role ?? null,
+    })
+    return null
+  }
+
+  return { companyId, userId: access.userId, role: access.role }
 }
 
 app.post('/v1/companies/:companyId/session', async (req, res) => { const a = await authReq(req,res); if (!a) return; await startSession(a.companyId); res.json(await status(a.companyId)) })

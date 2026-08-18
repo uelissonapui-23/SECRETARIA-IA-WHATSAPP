@@ -19,8 +19,17 @@ async function request(companyId:string, method:string) {
   const token = data.session?.access_token
   if (!token) throw new Error('not_authenticated')
   const response = await fetch(`${baseUrl()}/v1/companies/${encodeURIComponent(companyId)}/session`, { method, headers: { Authorization: `Bearer ${token}` } })
-  const payload = await response.json().catch(()=>({}))
-  if (!response.ok) throw new Error(payload.error || `gateway_${response.status}`)
+  const payload = await response.json().catch(()=>({})) as { error?: string; reason?: string; role?: string | null }
+  if (!response.ok) {
+    if (payload.reason === 'not_company_admin') {
+      throw new Error(payload.role
+        ? `Sua função atual nesta empresa é "${payload.role}". Apenas proprietário ou administrador pode gerenciar a conexão.`
+        : 'Sua conta não foi reconhecida como proprietária ou administradora desta empresa.')
+    }
+    if (payload.reason === 'company_not_found') throw new Error('A empresa selecionada não foi encontrada pelo gateway.')
+    if (payload.reason === 'invalid_user_token') throw new Error('Sua sessão expirou ou não pôde ser validada. Entre novamente no aplicativo.')
+    throw new Error(payload.error || `gateway_${response.status}`)
+  }
   return payload as PilotGatewayStatus
 }
 export const pilotGatewayConfigured = () => Boolean(import.meta.env.VITE_PILOT_GATEWAY_URL)
