@@ -21,22 +21,20 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'secretaria-pilo
 async function authReq(req: express.Request, res: express.Response) {
   const companyId = String(req.params.companyId || '')
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
-  if (!companyId || !token) {
-    res.status(401).json({ error: 'unauthorized', reason: 'missing_credentials' })
-    return null
-  }
-
+  if (!companyId || !token) { res.status(401).json({ error: 'unauthorized' }); return null }
   const access = await authorize(token, companyId)
-  if (!access.allowed) {
-    const statusCode = access.reason === 'invalid_user_token' ? 401 : 403
-    res.status(statusCode).json({
-      error: statusCode === 401 ? 'unauthorized' : 'forbidden',
-      reason: access.reason,
-      role: access.role ?? null,
-    })
+  if (!access.ok) {
+    if (access.reason === 'invalid_user_token') {
+      res.status(401).json({ error: 'session_expired' })
+      return null
+    }
+    if (access.reason === 'membership_query_failed' || access.reason === 'company_query_failed') {
+      res.status(500).json({ error: 'gateway_authorization_check_failed' })
+      return null
+    }
+    res.status(403).json({ error: 'company_admin_required', role: access.role ?? null })
     return null
   }
-
   return { companyId, userId: access.userId, role: access.role }
 }
 

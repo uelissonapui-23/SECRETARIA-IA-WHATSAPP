@@ -1,19 +1,26 @@
 # Correção gateway 403 + feedback do botão Atualizar
 
-Evidência:
-- CORS passou: OPTIONS 204.
-- GET/POST chegaram ao Railway e retornaram 403.
-- O botão Atualizar fazia a chamada, mas não tinha estado visual de carregamento.
+## Evidência
+- CORS resolvido: OPTIONS retorna 204.
+- GET/POST chegam ao Railway, mas retornam 403.
+- O botão Atualizar realmente disparava GET, porém não possuía estado visual de carregamento.
 
-Correções:
-1. Validação do JWT no gateway pelo cliente administrativo do Supabase.
-2. Diagnóstico explícito da autorização nos logs do Railway.
-3. Fallback seguro para `companies.created_by` como owner em bases antigas.
-4. Resposta 401/403 com `reason` sem expor segredos.
-5. Frontend traduz motivos de autorização em mensagens úteis.
-6. Botão Atualizar mostra spinner e texto `Atualizando...`.
+## Correções
+1. Autorização do gateway agora diferencia:
+   - token inválido/expirado;
+   - erro ao consultar company_members;
+   - erro ao consultar companies;
+   - usuário sem papel owner/admin.
+2. Fallback seguro para empresas antigas:
+   - se company_members estiver ausente, o `companies.created_by` pode confirmar o proprietário.
+3. Logs do Railway agora indicam a causa da recusa sem imprimir tokens ou segredos.
+4. O frontend traduz os códigos de erro em mensagens claras.
+5. O botão Atualizar passa a mostrar `Atualizando...` e ícone girando.
+6. Polling automático para quando há erro permanente de autorização, evitando spam de 403.
 
-Segurança:
-- Nenhuma secret key vai ao frontend.
-- O fallback de owner só vale quando `companies.created_by` é exatamente o usuário autenticado.
-- Admin/member continuam sem permissão de conectar se o papel não for owner/admin.
+## Não muda
+- nenhuma migration;
+- nenhuma variável;
+- nenhuma credencial;
+- nenhuma integração Meta;
+- nenhuma função de envio de WhatsApp.
