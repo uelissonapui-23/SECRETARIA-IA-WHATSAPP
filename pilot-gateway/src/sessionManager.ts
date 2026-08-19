@@ -25,13 +25,36 @@ export async function startSession(companyId: string) {
 
   socket.ev.on('creds.update', auth.saveCreds)
   socket.ev.on('messages.upsert', async ({ messages, type }) => {
-    if (type !== 'notify') return
+    logger.info({
+      companyId,
+      type,
+      count: messages.length,
+      fromMe: messages.filter((message) => message.key.fromMe).length,
+      direct: messages.filter((message) => {
+        const jid = message.key.remoteJid || ''
+        return Boolean(jid) && !jid.endsWith('@g.us') && jid !== 'status@broadcast' && !jid.endsWith('@newsletter')
+      }).length,
+      withText: messages.filter((message) => Boolean(
+        message.message?.conversation ||
+        message.message?.extendedTextMessage?.text ||
+        message.message?.imageMessage?.caption ||
+        message.message?.videoMessage?.caption
+      )).length,
+    }, 'pilot messages upsert')
+    if (type !== 'notify') {
+      logger.info({ companyId, type, count: messages.length }, 'pilot messages ignored because event is not new')
+      return
+    }
     for (const message of messages) {
-      try { await ingestIncoming(companyId, message) }
+      try {
+        await ingestIncoming(companyId, message)
+        logger.info({ companyId }, 'pilot message ingest completed')
+      }
       catch (error) { logger.error({ companyId, err: String(error) }, 'pilot message ingest failed') }
     }
   })
   socket.ev.on('connection.update', async ({ connection, qr, lastDisconnect }) => {
+    if (connection) logger.info({ companyId, connection }, 'pilot connection update')
     if (qr) {
       runtime.qrDataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 })
       await patch(companyId, { status: 'qr_ready' })
