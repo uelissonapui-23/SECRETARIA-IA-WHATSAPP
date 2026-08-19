@@ -157,15 +157,8 @@ export function MasterPage() {
     </div>
 
     <nav className="master-tabs" aria-label="Seções da Área Master">
-      {mainTabs.map(tab=>{const Icon=tab.icon;return <button key={tab.id} className={activeTab===tab.id?'active':''} onClick={()=>setActiveTab(tab.id)}><Icon size={17}/><span>{tab.label}</span>{Boolean(tab.badge)&&<small>{tab.badge}</small>}</button>})}
+      {mainTabs.map(tab=>{const Icon=tab.icon;return <button key={tab.id} className={activeTab===tab.id?'active':''} onClick={()=>setActiveTab(tab.id)}><Icon size={17}/><span>{tab.label}</span>{tab.badge ? <small>{tab.badge}</small> : null}</button>})}
     </nav>
-    <label className="master-mobile-selector">
-      <span>Área do painel</span>
-      <select value={activeTab} onChange={event=>setActiveTab(event.target.value as MasterTab)}>
-        {mainTabs.map(tab=><option key={tab.id} value={tab.id}>{tab.label}{Boolean(tab.badge)?` · ${tab.badge}`:''}</option>)}
-      </select>
-    </label>
-
     {error&&<div className="form-error page-message">{error}</div>}
 
     {activeTab==='overview'&&<div className="master-tab-content">
