@@ -11,12 +11,14 @@ import {
   ServerCog,
   ShieldCheck,
   Sparkles,
+  Image,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { formatDateTime } from '../lib/format'
 import { evidenceLabel, evidenceState } from '../lib/aiReleaseSafety'
 import { releaseHealthLabel, type ReleaseHealth } from '../lib/aiReleaseReview'
 import '../master-clean.css'
+import { MasterBrandingPanel } from '../components/MasterBrandingPanel'
 
 type Overview = { companies:number; users:number; whatsapp_connected:number; whatsapp_total:number; pending_suggestions:number; open_work:number; messages:number; analysis_runs_24h?:number; analysis_errors_24h?:number; pending_jobs?:number; failed_jobs?:number; exhausted_jobs?:number }
 type CompanyRow = { id:string; name:string; created_at:string; member_count:number; whatsapp_status:string; open_items:number }
@@ -32,7 +34,7 @@ type ReleaseEvidence = { release_id:string; version:number; label:string; status
 type ReleaseReview = { id:number; release_id:string; version:number; label:string; decision:'approved'|'rejected'|'needs_work'; reason:string; checklist:Record<string,boolean>; evidence_snapshot:Record<string,unknown>; created_at:string }
 type ReleaseHealthRow = { release_id:string; version:number; label:string; status:string; health:ReleaseHealth; runs_30d:number; avg_score_30d:number; regressions_30d:number; severe_regressions_30d:number; active_companies:number; quarantined:boolean; last_decision:string|null; last_review_at:string|null }
 type AiEvolutionRow = { company_id:string; company_name:string; release_state:'locked'|'pilot'|'enabled'; active_release_id:string|null; release_version:number|null; auto_promote:boolean; auto_lock_on_severe_regression:boolean; required_pilot_runs:number; min_active_score:number; max_regressions:number; severe_regression_count:number; severe_score_drop:number; latest_score:number; latest_regressions:number; latest_severe:boolean; pilot_runs:number; eligible_for_promotion:boolean }
-type MasterTab = 'overview'|'companies'|'ai'|'integrations'|'audit'
+type MasterTab = 'overview'|'companies'|'ai'|'integrations'|'branding'|'audit'
 type AiTab = 'summary'|'access'|'releases'|'safety'
 
 const integrationIcon = (key:string) => key === 'meta_whatsapp' ? MessageCircle : key === 'github' ? GitBranch : key === 'vercel' ? ServerCog : Database
@@ -143,6 +145,7 @@ export function MasterPage() {
     {id:'companies',label:'Empresas',icon:Building2,badge:overview?.companies},
     {id:'ai',label:'Inteligência',icon:Sparkles,badge:evalMaster?.ai_pilot},
     {id:'integrations',label:'Integrações',icon:ServerCog,badge:integrations.filter(x=>x.status!=='healthy').length},
+    {id:'branding',label:'Identidade visual',icon:Image},
     {id:'audit',label:'Auditoria',icon:Activity},
   ]
 
@@ -219,6 +222,8 @@ export function MasterPage() {
       <div className="integration-health-grid">{integrations.map(item=>{const Icon=integrationIcon(item.key);return <article className={`integration-health-card status-${item.status}`} key={item.key}><div className="integration-health-top"><span className="settings-icon mint"><Icon size={19}/></span><span className={`integration-state ${item.status==='healthy'?'ok':item.status==='paused'?'paused':'attention'}`}>{statusLabel[item.status]}</span></div><h3>{item.label}</h3><p>{item.notes||item.provider}</p><div className="integration-meta"><span>{item.version||item.provider}</span><span>{item.last_checked_at?`Atualizado ${formatDateTime(item.last_checked_at)}`:'Sem verificação recente'}</span></div></article>})}</div>
       <div className="security-note"><ShieldCheck size={18}/><span>Tokens, App Secrets, chaves privadas e service-role permanecem no armazenamento seguro do backend.</span></div>
     </div>}
+
+    {activeTab==='branding'&&<MasterBrandingPanel/>}
 
     {activeTab==='audit'&&<div className="master-tab-content">
       <div className="master-section-bar"><div><span className="eyebrow">AUDITORIA</span><h2>Histórico administrativo</h2><p>Veja quando uma decisão importante foi tomada sem misturar com o restante do painel.</p></div></div>

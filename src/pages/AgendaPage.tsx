@@ -188,7 +188,7 @@ export function AgendaPage() {
           <div className="date-badge"><strong>{new Date(item.starts_at).getDate().toString().padStart(2,'0')}</strong><span>{new Intl.DateTimeFormat('pt-BR',{month:'short'}).format(new Date(item.starts_at))}</span></div>
           <div className="record-main">
             <div className="record-title"><strong>{item.title}</strong><div className="record-badges"><span className="mini-status">{kinds.find((k) => k.v === (item.kind ?? 'appointment'))?.l}</span><span className={`mini-status appointment-${item.status}`}>{statusLabel(item.status)}</span></div></div>
-            <div className="record-meta"><span><Clock3 size={14}/>{formatDateTime(item.starts_at)}</span>{item.address && <span><MapPin size={14}/>{item.address}</span>}{contactName(item.contact_id) && <span>{contactName(item.contact_id)}</span>}</div>
+            <div className="record-meta"><span><Clock3 size={14}/>{formatDateTime(item.starts_at)}</span>{item.address && <span><MapPin size={14}/>{item.address}</span>}{contactName(item.contact_id) && <span>{contactName(item.contact_id)}</span>}{item.person_name&&<span>Pessoa: {item.person_name}</span>}</div>
             {item.notes && <p>{item.notes}</p>}
           </div>
           <div className="row-actions">

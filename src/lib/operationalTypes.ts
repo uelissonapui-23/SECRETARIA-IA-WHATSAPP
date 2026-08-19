@@ -15,6 +15,7 @@ export type Contact = {
   shared_number_suspected?: boolean
   shared_number_confirmed?: boolean
   identity_alert?: string | null
+  current_person_name?: string | null
   tags?: string[]
   last_interaction_at?: string | null
   created_at: string
@@ -33,6 +34,7 @@ export type Appointment = {
   status: string
   kind?: string
   reminder_minutes?: number
+  person_name?: string | null
   created_at: string
 }
 
@@ -47,6 +49,7 @@ export type Task = {
   status: string
   priority?: 'low' | 'normal' | 'high' | 'urgent'
   completed_at?: string | null
+  person_name?: string | null
   created_at: string
 }
 
@@ -63,6 +66,7 @@ export type WorkItem = {
   status: 'open' | 'in_progress' | 'waiting' | 'done' | 'cancelled'
   priority: 'low' | 'normal' | 'high' | 'urgent'
   completed_at: string | null
+  person_name?: string | null
   created_at: string
 }
 
