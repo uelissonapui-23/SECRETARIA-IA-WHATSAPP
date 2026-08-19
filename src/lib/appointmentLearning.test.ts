@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest'
 import {appointmentStartUtc,learnedAppointmentConfidence} from '../../supabase/functions/_shared/appointmentTime'
-import {analyzeText,normalizeWhatsAppText} from '../../supabase/functions/_shared/analyzer'
+import {analyzeText,hasOperationalSignal,normalizeWhatsAppText} from '../../supabase/functions/_shared/analyzer'
 
 describe('aprendizado seguro de agenda',()=>{
   it('converte amanhã 10:30 de Manaus para UTC',()=>expect(appointmentStartUtc({when_text:'amanhã',time_text:'10:30'},'2026-08-19T18:49:00.000Z','America/Manaus')).toBe('2026-08-20T14:30:00.000Z'))
@@ -13,4 +13,7 @@ describe('aprendizado seguro de agenda',()=>{
   it('prioriza reagendamento atual mesmo com criação no histórico',()=>{const[c]=analyzeText('remarc p amnh 16h','qro agnd uma visita amnh 9hrs','',{minConfidence:.65,allowMultiple:true});expect(c.extracted_data).toMatchObject({action:'reschedule',time_text:'16:00'})})
   it('prioriza cancelamento atual mesmo com agendamento no histórico',()=>{const[c]=analyzeText('canc meu horario','qro agnd uma visita amnh 9hrs','',{minConfidence:.65,allowMultiple:true});expect(c.extracted_data).toMatchObject({action:'cancel'})})
   it('corrige erros prováveis em palavras operacionais',()=>{const[c]=analyzeText('qro ajendar uma vizita amanha as 9h','','',{minConfidence:.65,allowMultiple:true});expect(c.extracted_data).toMatchObject({action:'create',when_text:'amanhã',time_text:'09:00'})})
+  it('ignora link isolado',()=>expect(hasOperationalSignal('https://secretaria-ia-whatsapp-iota.vercel.app/agenda')).toBe(false))
+  it('ignora conversa social comum',()=>{expect(analyzeText('obrigado, tudo certo','','',{minConfidence:.65,allowMultiple:true})).toEqual([]);expect(analyzeText('meu nome é Uelisson','','',{minConfidence:.65,allowMultiple:true})).toEqual([])})
+  it('mantém pedidos operacionais reais',()=>expect(hasOperationalSignal('pode remarcar minha visita para amanhã 16h')).toBe(true))
 })
