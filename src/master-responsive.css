@@ -1,0 +1,61 @@
+/* Master fluido: celular, tablet, notebook e telas grandes. */
+.master-clean-page,.master-tab-content,.master-clean-page .panel-card{min-width:0;max-width:100%}
+.master-clean-page{width:100%;overflow:hidden}
+.master-clean-page .page-heading{min-width:0}
+.master-clean-page .panel-head>*{min-width:0}
+.master-clean-page h1,.master-clean-page h2,.master-clean-page h3,.master-clean-page p,.master-clean-page strong,.master-clean-page span{overflow-wrap:anywhere}
+.master-clean-page .master-table{width:100%;max-width:100%;-webkit-overflow-scrolling:touch}
+.master-clean-page .master-table:after{content:"Deslize para ver mais";display:none;position:sticky;left:10px;width:max-content;padding:5px 8px;color:#7b8ba6;font-size:10px}
+
+@media(min-width:1600px){
+  .master-clean-page{gap:22px}
+  .master-summary-grid{grid-template-columns:repeat(4,minmax(230px,1fr))}
+  .master-overview-columns{gap:18px}
+}
+@media(max-width:1200px){
+  .master-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .master-overview-columns{grid-template-columns:1fr}
+  .integration-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:800px){
+  .master-clean-page{gap:14px}
+  .master-heading-clean{display:grid;align-items:start;gap:14px;padding:20px!important}
+  .master-heading-clean .master-refresh{width:100%;justify-content:center}
+  .master-tabs{width:100%;scroll-snap-type:x proximity}
+  .master-tabs button{scroll-snap-align:start;min-height:42px}
+  .master-overview-hero,.master-section-bar,.master-ai-header{display:grid;align-items:start}
+  .master-overview-hero>*,.master-section-bar>*,.master-ai-header>*{max-width:100%}
+  .master-search{width:100%}
+  .master-search input{width:100%;min-width:0}
+  .master-clean-page .panel-card{padding:18px!important}
+  .master-clean-page .master-table:after{display:block}
+  .master-audit-full{max-width:100%}
+  .branding-assets-grid{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .master-heading-clean{padding:17px!important;border-radius:19px}
+  .master-heading-clean h1{font-size:clamp(24px,8vw,31px)}
+  .master-heading-clean p{font-size:13px;line-height:1.5}
+  .master-tabs{padding:5px;border-radius:14px}
+  .master-tabs button{padding:9px 10px;font-size:11px}
+  .master-tabs button small{display:none}
+  .master-summary-grid,.integration-health-grid{grid-template-columns:1fr}
+  .master-summary-card{width:100%;min-height:92px;padding:14px}
+  .master-subtabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .master-subtabs button{min-width:0;border-radius:12px;padding:9px 7px;font-size:11px;white-space:normal}
+  .master-clean-page .panel-card{padding:15px!important;border-radius:17px!important}
+  .master-clean-page .panel-head{display:grid;width:100%;gap:10px}
+  .master-clean-page .inline-actions,.master-clean-page .release-controls{display:grid;width:100%;grid-template-columns:1fr}
+  .master-clean-page .inline-actions input,.master-clean-page .inline-actions button,.master-clean-page .release-controls select,.master-clean-page .release-controls button{width:100%;min-width:0;max-width:none}
+  .master-quick-health>div{grid-template-columns:auto minmax(0,1fr)}
+  .master-quick-health>div small{grid-column:2}
+  .branding-names{grid-template-columns:1fr}
+  .branding-asset{grid-template-columns:1fr;padding:14px!important}
+  .branding-preview{height:132px}
+  .branding-upload{width:100%;justify-content:center;margin:0 0 6px}
+  .master-activity-row{grid-template-columns:auto minmax(0,1fr)}
+}
+@media(max-width:370px){
+  .master-subtabs{grid-template-columns:1fr}
+  .master-tabs button{padding-inline:8px}
+}

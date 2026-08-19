@@ -18,6 +18,7 @@ import { formatDateTime } from '../lib/format'
 import { evidenceLabel, evidenceState } from '../lib/aiReleaseSafety'
 import { releaseHealthLabel, type ReleaseHealth } from '../lib/aiReleaseReview'
 import '../master-clean.css'
+import '../master-responsive.css'
 import { MasterBrandingPanel } from '../components/MasterBrandingPanel'
 
 type Overview = { companies:number; users:number; whatsapp_connected:number; whatsapp_total:number; pending_suggestions:number; open_work:number; messages:number; analysis_runs_24h?:number; analysis_errors_24h?:number; pending_jobs?:number; failed_jobs?:number; exhausted_jobs?:number }
