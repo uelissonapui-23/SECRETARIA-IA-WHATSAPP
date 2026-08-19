@@ -51,5 +51,8 @@ describe('contrato mínimo de segurança do banco', () => {
     expect(normalized).toContain('on table public.pilot_whatsapp_sessions to service_role')
     expect(normalized).toContain('on table public.pilot_whatsapp_auth to service_role')
     expect(normalized).not.toContain('grant all on schema public to service_role')
+
+    expect(normalized).toContain('grant select, insert, update on table public.analysis_runs to service_role')
+    expect(normalized).toContain('grant insert on table public.ai_suggestions to service_role')
   })
 })
