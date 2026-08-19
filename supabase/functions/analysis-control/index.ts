@@ -19,7 +19,7 @@ Deno.serve(async(req)=>{
   if(input.action==='reprocess_message'&&!input.message_id)return json({error:'message_id_required'},400)
   const messageIds:string[]=[]
   if(input.action==='reprocess_message')messageIds.push(input.message_id!)
-  else{const limit=Math.max(1,Math.min(10,Number(input.limit??5)));const{data,error}=await admin.from('message_jobs').select('message_id').eq('company_id',input.company_id).eq('status','failed').order('updated_at',{ascending:true}).limit(limit);if(error)return json({error:'queue_read_failed'},500);messageIds.push(...(data??[]).map(r=>r.message_id))}
+  else{const limit=Math.max(1,Math.min(10,Number(input.limit??5)));const{data,error}=await admin.from('message_jobs').select('message_id').eq('company_id',input.company_id).in('status',['pending','failed']).order('updated_at',{ascending:true}).limit(limit);if(error)return json({error:'queue_read_failed'},500);messageIds.push(...(data??[]).map(r=>r.message_id))}
   if(messageIds.length===0)return json({processed:0,failed:0})
   const workerSecret=Deno.env.get('WORKER_SECRET')??'';if(!workerSecret)return json({error:'worker_not_configured'},503)
   let processed=0,failed=0
