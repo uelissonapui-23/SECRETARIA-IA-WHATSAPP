@@ -6,6 +6,7 @@
 .master-clean-page h1,.master-clean-page h2,.master-clean-page h3,.master-clean-page p,.master-clean-page strong,.master-clean-page span{overflow-wrap:anywhere}
 .master-clean-page .master-table{width:100%;max-width:100%;-webkit-overflow-scrolling:touch}
 .master-clean-page .master-table:after{content:"Deslize para ver mais";display:none;position:sticky;left:10px;width:max-content;padding:5px 8px;color:#7b8ba6;font-size:10px}
+.master-mobile-selector{display:none}
 
 @media(min-width:1600px){
   .master-clean-page{gap:22px}
@@ -21,8 +22,9 @@
   .master-clean-page{gap:14px}
   .master-heading-clean{display:grid;align-items:start;gap:14px;padding:20px!important}
   .master-heading-clean .master-refresh{width:100%;justify-content:center}
-  .master-tabs{width:100%;scroll-snap-type:x proximity}
-  .master-tabs button{scroll-snap-align:start;min-height:42px}
+  .master-tabs{display:none}
+  .master-mobile-selector{display:grid;gap:7px;padding:14px 15px;border:1px solid #dce5ef;border-radius:17px;background:linear-gradient(135deg,#fff,#f2fbf9);box-shadow:0 9px 25px rgba(27,52,84,.07);color:#596b87;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+  .master-mobile-selector select{height:46px;width:100%;padding:0 42px 0 13px;border:1px solid #cddae7;border-radius:13px;background-color:#fff;color:#15304e;font-size:15px;font-weight:800;text-transform:none;letter-spacing:0;box-shadow:0 4px 12px rgba(30,54,85,.05)}
   .master-overview-hero,.master-section-bar,.master-ai-header{display:grid;align-items:start}
   .master-overview-hero>*,.master-section-bar>*,.master-ai-header>*{max-width:100%}
   .master-search{width:100%}
@@ -36,9 +38,6 @@
   .master-heading-clean{padding:17px!important;border-radius:19px}
   .master-heading-clean h1{font-size:clamp(24px,8vw,31px)}
   .master-heading-clean p{font-size:13px;line-height:1.5}
-  .master-tabs{padding:5px;border-radius:14px}
-  .master-tabs button{padding:9px 10px;font-size:11px}
-  .master-tabs button small{display:none}
   .master-summary-grid,.integration-health-grid{grid-template-columns:1fr}
   .master-summary-card{width:100%;min-height:92px;padding:14px}
   .master-subtabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
@@ -57,5 +56,4 @@
 }
 @media(max-width:370px){
   .master-subtabs{grid-template-columns:1fr}
-  .master-tabs button{padding-inline:8px}
 }
