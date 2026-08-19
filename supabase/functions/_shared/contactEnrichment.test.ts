@@ -22,3 +22,9 @@ Deno.test('accepts a bare name only after the business asks who is speaking', ()
   assertEquals(extractContactEnrichment('Uelisson', 'Com quem eu falo mesmo?'), { name: 'Uelisson' })
   assertEquals(extractContactEnrichment('A visita é para Maria', 'Pode confirmar o horário?'), {})
 })
+
+Deno.test('isolates a corrected name without storing the rest of the phrase', () => {
+  assertEquals(extractContactEnrichment('e Uelisson barros', '', 'opa mandei errado'), { name: 'Uelisson barros' })
+  assertEquals(extractContactEnrichment('na verdade é Carlos Silva', '', 'mandei o nome errado'), { name: 'Carlos Silva' })
+  assertEquals(extractContactEnrichment('opa mandei errado', 'Com quem eu falo?'), {})
+})
