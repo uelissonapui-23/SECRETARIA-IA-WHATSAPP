@@ -6,6 +6,10 @@ export type Contact = {
   phone: string | null
   email?: string | null
   notes?: string | null
+  home_address?: string | null
+  work_address?: string | null
+  store_address?: string | null
+  company_name?: string | null
   tags?: string[]
   last_interaction_at?: string | null
   created_at: string

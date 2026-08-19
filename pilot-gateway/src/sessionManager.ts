@@ -58,7 +58,7 @@ export async function startSession(companyId: string) {
     }
     for (const message of messages) {
       try {
-        await ingestIncoming(companyId, message)
+        await ingestIncoming(companyId, message, (lid) => socket.signalRepository.lidMapping.getPNForLID(lid))
         logger.info({ companyId }, 'pilot message ingest completed')
       }
       catch (error) { logger.error({ companyId, err: String(error) }, 'pilot message ingest failed') }

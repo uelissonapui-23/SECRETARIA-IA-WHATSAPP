@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { analyzeText, type Candidate } from '../_shared/analyzer.ts'
 import { aiProviderConfigured, analyzeWithAi } from '../_shared/aiProvider.ts'
 import { appointmentStartUtc, learnedAppointmentConfidence } from '../_shared/appointmentTime.ts'
+import { extractContactEnrichment } from '../_shared/contactEnrichment.ts'
 
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}})
 const merge=(rules:Candidate[],ai:Candidate[],allowMultiple:boolean)=>{const map=new Map<string,Candidate>();for(const x of [...ai,...rules]){const old=map.get(x.type);if(!old||x.confidence>old.confidence)map.set(x.type,x)}const out=[...map.values()].sort((a,b)=>b.confidence-a.confidence);return allowMultiple?out:out.slice(0,1)}
@@ -15,6 +16,9 @@ Deno.serve(async (req) => {
   let runId:string|undefined;let engine='rules-v1';let fallbackUsed=false;let provider:string|undefined;let model:string|undefined;let promptTokens=0;let completionTokens=0;let totalTokens=0;let estimatedCostUsd=0
   try{
     await supabase.from('message_jobs').update({status:'processing',last_attempt_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id)
+    const contactEnrichment=extractContactEnrichment(message.body_text??'')
+    const enrichedFields=Object.keys(contactEnrichment)
+    if(message.contact_id&&enrichedFields.length){const{error:contactUpdateError}=await supabase.from('contacts').update({...contactEnrichment,profile_updated_at:new Date().toISOString()}).eq('id',message.contact_id).eq('company_id',message.company_id);if(contactUpdateError)throw new Error(`contact_enrichment_failed:${contactUpdateError.code??'unknown'}`);await supabase.from('audit_logs').insert({company_id:message.company_id,action:'contact_profile_enriched',entity_type:'contact',entity_id:message.contact_id,metadata:{fields:enrichedFields,source_message_id:message.id}})}
     const[{data:policy},{data:settings},{data:aiAccess}]=await Promise.all([supabase.from('analysis_policies').select('*').eq('company_id',message.company_id).maybeSingle(),supabase.from('company_settings').select('*').eq('company_id',message.company_id).maybeSingle(),supabase.from('platform_ai_company_access').select('release_state').eq('company_id',message.company_id).maybeSingle()])
     if(!message.eligible_for_ai||!message.body_text){const{error:skipRunError}=await supabase.from('analysis_runs').insert({company_id:message.company_id,message_id:message.id,source:body.source??'message',engine,status:'skipped',duration_ms:Date.now()-started});if(skipRunError)throw new Error(`analysis_run_insert_failed:${skipRunError.code??'unknown'}`);await supabase.from('message_jobs').update({status:'done',completed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('message_id',message.id);return json({skipped:true})}
     const contextLimit=Math.max(1,Math.min(12,Number(policy?.context_messages??5)));const{data:contextRows}=await supabase.from('messages').select('id,body_text,provider_timestamp').eq('conversation_id',message.conversation_id).eq('message_type','text').lt('created_at',message.created_at).order('created_at',{ascending:false}).limit(contextLimit);const context=(contextRows??[]).reverse();const contextText=context.map(row=>row.body_text).filter(Boolean).join('\n')

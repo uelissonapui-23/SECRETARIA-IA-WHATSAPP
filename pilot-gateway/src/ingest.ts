@@ -1,25 +1,39 @@
 import type { WAMessage } from 'baileys'
 import { admin } from './db.js'
 import { config } from './config.js'
+import { phoneFromPnJid, resolvePhoneJid } from './phoneIdentity.js'
 
 function textOf(message: WAMessage) {
   const m = message.message
   return m?.conversation || m?.extendedTextMessage?.text || m?.imageMessage?.caption || m?.videoMessage?.caption || null
 }
-function phoneOf(jid: string) { return jid.split('@')[0].replace(/\D/g, '').slice(0, 20) }
-
-export async function ingestIncoming(companyId: string, message: WAMessage) {
+export async function ingestIncoming(companyId: string, message: WAMessage, resolveLid?: (lid: string) => Promise<string | null>) {
   if (!message.key.id || message.key.fromMe) return
   const jid = message.key.remoteJid || ''
   if (!jid || jid === 'status@broadcast' || jid.endsWith('@g.us') || jid.endsWith('@newsletter')) return
   const body = textOf(message)?.trim()
   if (!body) return // piloto V1: somente texto/caption; mídia/áudio ficam fora
 
-  const phone = phoneOf(jid)
+  const phoneJid = await resolvePhoneJid(message, resolveLid)
+  const phone = phoneFromPnJid(phoneJid)
   const name = message.pushName?.trim() || phone || 'Contato WhatsApp'
-  const { data: contact, error: contactError } = await admin.from('contacts').upsert({
-    company_id: companyId, whatsapp_id: `pilot:${jid}`, name, phone: phone || null,
-  }, { onConflict: 'company_id,whatsapp_id' }).select('id').single()
+  const whatsappId = `pilot:${jid}`
+  const { data: existing, error: lookupError } = await admin.from('contacts').select('id,name,phone').eq('company_id', companyId).eq('whatsapp_id', whatsappId).maybeSingle()
+  if (lookupError) throw lookupError
+  let contact = existing
+  let contactError = null
+  if (existing) {
+    const updates: Record<string, unknown> = {}
+    if (phone && phone !== existing.phone) updates.phone = phone
+    if ((!existing.name || existing.name === 'Contato WhatsApp') && name !== 'Contato WhatsApp') updates.name = name
+    if (Object.keys(updates).length) {
+      const result = await admin.from('contacts').update(updates).eq('id', existing.id).select('id,name,phone').single()
+      contact = result.data; contactError = result.error
+    }
+  } else {
+    const result = await admin.from('contacts').insert({ company_id: companyId, whatsapp_id: whatsappId, name, phone }).select('id,name,phone').single()
+    contact = result.data; contactError = result.error
+  }
   if (contactError || !contact) throw contactError || new Error('contact_not_created')
 
   const at = message.messageTimestamp ? new Date(Number(message.messageTimestamp) * 1000) : new Date()
@@ -37,7 +51,7 @@ export async function ingestIncoming(companyId: string, message: WAMessage) {
     message_type: 'text',
     body_text: body.slice(0, 4000),
     provider_timestamp: at.toISOString(),
-    raw_payload: { _secretaria_source: 'pilot_gateway', remote_jid: jid, message_id: message.key.id },
+    raw_payload: { _secretaria_source: 'pilot_gateway', remote_jid: jid, phone_jid: phoneJid, message_id: message.key.id },
     eligible_for_ai: true,
   }).select('id').single()
 
