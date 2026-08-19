@@ -28,13 +28,16 @@ export async function ingestIncoming(companyId: string, message: WAMessage, reso
   if (existing) {
     const updates: Record<string, unknown> = {}
     if (phone && phone !== existing.phone) updates.phone = phone
-    if (!fromMe && (!existing.name || existing.name === 'Contato WhatsApp') && name !== 'Contato WhatsApp') updates.name = name
+    if (!fromMe && name !== 'Contato WhatsApp') {
+      updates.profile_name = name
+      if (!existing.name || existing.name === 'Contato WhatsApp') updates.name = name
+    }
     if (Object.keys(updates).length) {
       const result = await admin.from('contacts').update(updates).eq('id', existing.id).select('id,name,phone').single()
       contact = result.data; contactError = result.error
     }
   } else {
-    const result = await admin.from('contacts').insert({ company_id: companyId, whatsapp_id: whatsappId, name, phone }).select('id,name,phone').single()
+    const result = await admin.from('contacts').insert({ company_id: companyId, whatsapp_id: whatsappId, name, profile_name: fromMe ? null : name, phone }).select('id,name,phone').single()
     contact = result.data; contactError = result.error
   }
   if (contactError || !contact) throw contactError || new Error('contact_not_created')

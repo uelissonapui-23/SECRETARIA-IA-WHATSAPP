@@ -10,6 +10,10 @@ export type Contact = {
   work_address?: string | null
   store_address?: string | null
   company_name?: string | null
+  profile_name?: string | null
+  identified_names?: string[]
+  shared_number_suspected?: boolean
+  identity_alert?: string | null
   tags?: string[]
   last_interaction_at?: string | null
   created_at: string

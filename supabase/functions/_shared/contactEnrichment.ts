@@ -9,6 +9,7 @@ export type ContactEnrichment = {
 }
 
 const clean = (value: string) => value.trim().replace(/[.,;]+$/, '').replace(/\s+/g, ' ').slice(0, 300)
+const isolateValue = (value: string) => clean(value.split(/(?:[;\n]|\.\s+|\s+e\s+(?=(?:meu|minha|tamb[eé]m|preciso|quero|gostaria|estou|vou)\b))/i)[0])
 
 const asksIdentity = (text: string) => /\b(com\s+quem\s+(?:eu\s+)?falo|quem\s+(?:está|esta|tá|ta)\s+falando|qual\s+(?:é|e)\s+(?:o\s+)?seu\s+nome|quem\s+(?:é|e)\s+você)\b/i.test(text)
 const bareName = (text: string) => {
@@ -27,12 +28,16 @@ export function extractContactEnrichment(text: string, previousOutboundText = ''
     ['store_address', /(?:endere[cç]o\s+(?:(?:da|de)\s+)?minha\s+loja|endere[cç]o\s+da\s+loja|minha\s+loja\s+fica)\s*(?:é|e|:|na|no)?\s+(.+)/i],
     ['work_address', /(?:endere[cç]o\s+(?:do|de)\s+(?:meu\s+)?trabalho|meu\s+trabalho\s+fica)\s*(?:é|e|:|na|no)?\s+(.+)/i],
     ['company_name', /(?:minha\s+(?:empresa|loja)\s+(?:se\s+chama|é)|nome\s+da\s+(?:empresa|loja)\s*(?:é|:))\s+([\p{L}\d][\p{L}\d\s&'-]{1,100}?)(?=\s+e\s+(?:meu|minha)|[,.\n]|$)/iu],
-    ['name', /(?:meu\s+nome\s+(?:é|e)|me\s+chamo)\s+([\p{L}][\p{L}\s'-]{1,80}?)(?=\s+e\s+(?:meu|minha)|[,.\n]|$)/iu],
+    ['name', /(?:meu\s+nome\s+(?:é|e)|me\s+chamo|aqui\s+(?:é|e))\s+([\p{L}][\p{L}\s'-]{1,80}?)(?=\s+e\s+(?:meu|minha|preciso|quero|gostaria|estou|vou)|[,.\n]|$)/iu],
     ['phone', /(?:meu\s+(?:telefone|celular|whatsapp|zap)\s*(?:é|e|:))\s*(\+?[\d\s().-]{8,25})/i],
   ]
   for (const [key, pattern] of patterns) {
     const value = text.match(pattern)?.[1]
-    if (value) result[key] = key === 'phone' ? value.replace(/\D/g, '').slice(0, 20) : clean(value)
+    if (value) {
+      const isolated=key === 'phone' ? value.replace(/\D/g, '').slice(0, 20) : isolateValue(value)
+      if(key==='name'){const valid=bareName(isolated);if(valid)result.name=valid}
+      else result[key]=isolated
+    }
   }
   const correctingName=/\b(mandei|falei|escrevi|digitei)\s+(?:o\s+nome\s+)?errad[oa]\b|\bcorrigindo\b|\bna\s+verdade\b/i.test(previousInboundText)
   if (!result.name && (asksIdentity(previousOutboundText)||correctingName)) {

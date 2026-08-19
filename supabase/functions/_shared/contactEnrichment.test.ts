@@ -28,3 +28,7 @@ Deno.test('isolates a corrected name without storing the rest of the phrase', ()
   assertEquals(extractContactEnrichment('na verdade é Carlos Silva', '', 'mandei o nome errado'), { name: 'Carlos Silva' })
   assertEquals(extractContactEnrichment('opa mandei errado', 'Com quem eu falo?'), {})
 })
+
+Deno.test('extracts several isolated facts from one long message', () => {
+  assertEquals(extractContactEnrichment('Olá, meu nome é João da Silva e preciso de ajuda. Meu e-mail é joao@email.com e meu endereço de casa é Rua das Flores, 25; obrigado'), { email: 'joao@email.com', home_address: 'Rua das Flores, 25', name: 'João da Silva' })
+})
