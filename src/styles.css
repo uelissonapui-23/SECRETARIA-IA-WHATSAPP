@@ -564,3 +564,23 @@ input,select,textarea{min-width:0}
 @media(max-width:760px){.contact-person-row{align-items:flex-start;flex-wrap:wrap}.contact-person-row .grow{min-width:calc(100% - 54px)}.contact-person-row .heading-actions{width:100%;display:grid;grid-template-columns:1fr 1fr auto}.contact-person-row .heading-actions button{justify-content:center}.contact-person-add{grid-template-columns:1fr}.contact-person-add button{width:100%;justify-content:center}.client-timeline-row{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}.client-timeline-row .timeline-person-select{grid-column:2;width:100%}.client-timeline-row .timeline-person-select select{width:100%;max-width:none}.client-timeline-row>.mini-status{grid-column:2;justify-self:start}}
 @media(max-width:420px){.contact-person-row .heading-actions{grid-template-columns:1fr}.contact-person-row .heading-actions .icon-button{width:100%}}
 .suggestion-person-choice{display:grid;gap:6px;margin:12px 0;padding:12px;border:1px solid #bfe7df;border-radius:13px;background:#effbf8}.suggestion-person-choice>span{font-size:12px;font-weight:800;color:#24665f}.suggestion-person-choice select{height:40px;background:#fff;border-color:#b9ddd7}
+
+/* Em computador, a largura/zoom da janela nao deve trocar para o menu movel. */
+@media(hover:hover) and (pointer:fine){
+  .app-shell .bottom-nav{display:none!important}
+  .app-shell .sidebar{display:flex!important}
+  .app-shell .main-area{margin-left:248px!important;width:auto!important;max-width:none!important}
+  .app-shell .content{padding-bottom:80px}
+}
+@media(hover:hover) and (pointer:fine) and (max-width:1024px){
+  .app-shell .sidebar{width:82px!important;padding:18px 10px!important;align-items:stretch}
+  .app-shell .sidebar .evoria-brand{align-items:center;margin-bottom:18px}
+  .app-shell .sidebar .evoria-brand img{width:58px!important;padding:4px;border-radius:12px}
+  .app-shell .sidebar .evoria-brand span,.app-shell .sidebar .nav-link span,.app-shell .sidebar .sidebar-logout span{display:none!important}
+  .app-shell .sidebar nav{gap:7px}
+  .app-shell .sidebar .nav-link,.app-shell .sidebar .sidebar-logout{justify-content:center;padding:12px 8px;min-height:46px}
+  .app-shell .sidebar .nav-link:hover{transform:none}
+  .app-shell .main-area{margin-left:82px!important}
+  .app-shell .content{padding:24px 18px 80px;overflow:visible}
+  .app-shell .topbar{padding-inline:18px}
+}
