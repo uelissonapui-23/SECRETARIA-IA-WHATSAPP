@@ -1,5 +1,5 @@
 import { Bell, Bot, CalendarDays, Check, ClipboardList, Home, LogOut, MessageCircle, MoreHorizontal, Settings, ShieldCheck, Sparkles, Users, WifiOff, X } from 'lucide-react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../company/CompanyProvider'
@@ -21,6 +21,7 @@ export function AppShell() {
   const { signOut } = useAuth()
   const { currentCompany, companies, selectCompany } = useCompany()
   const navigate = useNavigate()
+  const location = useLocation()
   const [busy, setBusy] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
@@ -35,14 +36,14 @@ export function AppShell() {
   }, [platformRole, currentCompany])
 
   const loadNotifications = useCallback(async () => {
-    if (!currentCompany) {
+    if (!currentCompany || location.pathname.startsWith('/master')) {
       setNotifications([])
       return
     }
     await supabase.rpc('refresh_company_notifications', { target_company_id: currentCompany.id })
     const { data } = await supabase.from('app_notifications').select('id,title,body,link,read_at,created_at,severity').eq('company_id', currentCompany.id).order('created_at', { ascending:false }).limit(16)
     setNotifications((data ?? []) as typeof notifications)
-  }, [currentCompany])
+  }, [currentCompany, location.pathname])
 
   useEffect(() => { void loadNotifications() }, [loadNotifications])
   useEffect(() => {

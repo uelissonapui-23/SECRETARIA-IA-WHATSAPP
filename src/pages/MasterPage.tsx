@@ -81,7 +81,7 @@ export function MasterPage() {
         setOverview(null); setCompanies([]); setIntegrations([]); setActivity([])
         return
       }
-      const [o,c,i,a,ai,q,access,ev,releases,evolution,evolutionRows,evidence,reviews,health] = await Promise.all([
+      const [o,c,i,a,ai,q,access] = await Promise.all([
         supabase.rpc('platform_master_overview'),
         supabase.rpc('platform_master_companies',{limit_rows:100}),
         supabase.rpc('platform_master_integrations'),
@@ -89,13 +89,6 @@ export function MasterPage() {
         supabase.rpc('platform_master_ai_usage'),
         supabase.rpc('platform_master_quality'),
         supabase.rpc('platform_master_ai_access'),
-        supabase.rpc('platform_master_ai_evaluation'),
-        supabase.rpc('platform_master_ai_releases'),
-        supabase.rpc('platform_master_ai_evolution'),
-        supabase.rpc('platform_master_ai_evolution_rows'),
-        supabase.rpc('platform_master_release_evidence'),
-        supabase.rpc('platform_master_release_review_history'),
-        supabase.rpc('platform_master_release_health'),
       ])
       if (o.error) throw o.error
       if (c.error) throw c.error
@@ -108,19 +101,24 @@ export function MasterPage() {
       if (!ai.error) setAiUsage((ai.data ?? null) as AiUsage|null)
       if (!q.error) setQuality((q.data ?? null) as Quality|null)
       if (!access.error) setAiAccess((access.data ?? []) as AiAccessRow[])
-      if (!ev.error) setEvalMaster((ev.data ?? null) as EvalMaster|null)
-      if (!releases.error) setAiReleases((releases.data ?? []) as AiRelease[])
-      if (!evolution.error) setAiEvolution((evolution.data ?? null) as AiEvolution|null)
-      if (!evolutionRows.error) setAiEvolutionRows((evolutionRows.data ?? []) as AiEvolutionRow[])
-      if (!evidence.error) setReleaseEvidence((evidence.data ?? []) as ReleaseEvidence[])
-      if (!reviews.error) setReleaseReviews((reviews.data ?? []) as ReleaseReview[])
-      if (!health.error) setReleaseHealth((health.data ?? []) as ReleaseHealthRow[])
+      if(activeTab==='ai'){
+        const[ev,releases,evolution,evolutionRows,evidence,reviews,health]=await Promise.all([
+          supabase.rpc('platform_master_ai_evaluation'),supabase.rpc('platform_master_ai_releases'),supabase.rpc('platform_master_ai_evolution'),supabase.rpc('platform_master_ai_evolution_rows'),supabase.rpc('platform_master_release_evidence'),supabase.rpc('platform_master_release_review_history'),supabase.rpc('platform_master_release_health'),
+        ])
+        if (!ev.error) setEvalMaster((ev.data ?? null) as EvalMaster|null)
+        if (!releases.error) setAiReleases((releases.data ?? []) as AiRelease[])
+        if (!evolution.error) setAiEvolution((evolution.data ?? null) as AiEvolution|null)
+        if (!evolutionRows.error) setAiEvolutionRows((evolutionRows.data ?? []) as AiEvolutionRow[])
+        if (!evidence.error) setReleaseEvidence((evidence.data ?? []) as ReleaseEvidence[])
+        if (!reviews.error) setReleaseReviews((reviews.data ?? []) as ReleaseReview[])
+        if (!health.error) setReleaseHealth((health.data ?? []) as ReleaseHealthRow[])
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível carregar a Área Master.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeTab])
 
   useEffect(() => { void load() }, [load])
 
