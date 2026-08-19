@@ -43,4 +43,13 @@ describe('contrato mínimo de segurança do banco', () => {
     expect(source).not.toMatch(/SUPABASE_(SERVICE_ROLE|SECRET)_KEY/)
     expect(source).not.toContain(['META', 'APP', 'SECRET'].join('_'))
   })
+
+  it('concede ao gateway somente as operações de banco necessárias', () => {
+    const normalized = sql.toLowerCase().replace(/\s+/g, ' ')
+    expect(normalized).toContain('grant select on table public.company_members to service_role')
+    expect(normalized).toContain('grant select on table public.companies to service_role')
+    expect(normalized).toContain('on table public.pilot_whatsapp_sessions to service_role')
+    expect(normalized).toContain('on table public.pilot_whatsapp_auth to service_role')
+    expect(normalized).not.toContain('grant all on schema public to service_role')
+  })
 })
