@@ -16,8 +16,9 @@ alter table public.platform_branding enable row level security;
 
 create or replace function public.is_platform_master()
 returns boolean language sql stable security definer set search_path=public as $$
-  select exists(select 1 from public.platform_roles where user_id=auth.uid() and role='master');
+  select public.is_platform_admin(array['master']::text[]);
 $$;
+drop policy if exists "branding master manage" on public.platform_branding;
 create policy "branding master manage" on public.platform_branding for all to authenticated using(public.is_platform_master()) with check(public.is_platform_master());
 grant select,insert,update on public.platform_branding to authenticated;
 
@@ -29,6 +30,9 @@ grant execute on function public.get_platform_branding() to anon,authenticated;
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('platform-branding','platform-branding',true,5242880,array['image/png','image/jpeg','image/webp','image/svg+xml','image/x-icon'])
 on conflict(id) do update set public=true,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
+drop policy if exists "branding master upload" on storage.objects;
+drop policy if exists "branding master update" on storage.objects;
+drop policy if exists "branding master delete" on storage.objects;
 create policy "branding master upload" on storage.objects for insert to authenticated with check(bucket_id='platform-branding' and public.is_platform_master());
 create policy "branding master update" on storage.objects for update to authenticated using(bucket_id='platform-branding' and public.is_platform_master());
 create policy "branding master delete" on storage.objects for delete to authenticated using(bucket_id='platform-branding' and public.is_platform_master());
