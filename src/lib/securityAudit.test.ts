@@ -54,5 +54,6 @@ describe('contrato mínimo de segurança do banco', () => {
 
     expect(normalized).toContain('grant select, insert, update on table public.analysis_runs to service_role')
     expect(normalized).toContain('grant insert on table public.ai_suggestions to service_role')
+    expect(normalized).toContain('grant update on table public.ai_suggestions to authenticated')
   })
 })
