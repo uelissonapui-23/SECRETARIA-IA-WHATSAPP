@@ -6,6 +6,9 @@
 .master-clean-page h1,.master-clean-page h2,.master-clean-page h3,.master-clean-page p,.master-clean-page strong,.master-clean-page span{overflow-wrap:anywhere}
 .master-clean-page .master-table{width:100%;max-width:100%;-webkit-overflow-scrolling:touch}
 .master-clean-page .master-table:after{content:"Deslize para ver mais";display:none;position:sticky;left:10px;width:max-content;padding:5px 8px;color:#7b8ba6;font-size:10px}
+.master-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));width:100%;max-width:100%;overflow:visible;align-items:stretch}
+.master-tabs button{width:100%;min-width:0;justify-content:center}
+.master-tabs button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 @media(min-width:1600px){
   .master-clean-page{gap:22px}
