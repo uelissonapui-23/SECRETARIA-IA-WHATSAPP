@@ -8,15 +8,18 @@ function textOf(message: WAMessage) {
   return m?.conversation || m?.extendedTextMessage?.text || m?.imageMessage?.caption || m?.videoMessage?.caption || null
 }
 export async function ingestIncoming(companyId: string, message: WAMessage, resolveLid?: (lid: string) => Promise<string | null>) {
-  if (!message.key.id || message.key.fromMe) return
-  const jid = message.key.remoteJid || ''
-  if (!jid || jid === 'status@broadcast' || jid.endsWith('@g.us') || jid.endsWith('@newsletter')) return
+  if (!message.key.id) return
+  const remoteJid = message.key.remoteJid || ''
+  if (!remoteJid || remoteJid === 'status@broadcast' || remoteJid.endsWith('@g.us') || remoteJid.endsWith('@newsletter')) return
+  // Prefere o LID estável como identidade, mas nunca o utiliza como telefone.
+  const jid = [message.key.remoteJid, message.key.remoteJidAlt, message.key.participant, message.key.participantAlt].find((value) => value?.endsWith('@lid')) || remoteJid
   const body = textOf(message)?.trim()
   if (!body) return // piloto V1: somente texto/caption; mídia/áudio ficam fora
 
   const phoneJid = await resolvePhoneJid(message, resolveLid)
   const phone = phoneFromPnJid(phoneJid)
-  const name = message.pushName?.trim() || phone || 'Contato WhatsApp'
+  const fromMe = message.key.fromMe === true
+  const name = (!fromMe ? message.pushName?.trim() : null) || phone || 'Contato WhatsApp'
   const whatsappId = `pilot:${jid}`
   const { data: existing, error: lookupError } = await admin.from('contacts').select('id,name,phone').eq('company_id', companyId).eq('whatsapp_id', whatsappId).maybeSingle()
   if (lookupError) throw lookupError
@@ -25,7 +28,7 @@ export async function ingestIncoming(companyId: string, message: WAMessage, reso
   if (existing) {
     const updates: Record<string, unknown> = {}
     if (phone && phone !== existing.phone) updates.phone = phone
-    if ((!existing.name || existing.name === 'Contato WhatsApp') && name !== 'Contato WhatsApp') updates.name = name
+    if (!fromMe && (!existing.name || existing.name === 'Contato WhatsApp') && name !== 'Contato WhatsApp') updates.name = name
     if (Object.keys(updates).length) {
       const result = await admin.from('contacts').update(updates).eq('id', existing.id).select('id,name,phone').single()
       contact = result.data; contactError = result.error
@@ -47,19 +50,22 @@ export async function ingestIncoming(companyId: string, message: WAMessage, reso
     conversation_id: conversationId,
     contact_id: contact.id,
     provider_message_id: `pilot:${message.key.id}`,
-    direction: 'inbound',
+    direction: fromMe ? 'outbound' : 'inbound',
     message_type: 'text',
     body_text: body.slice(0, 4000),
     provider_timestamp: at.toISOString(),
-    raw_payload: { _secretaria_source: 'pilot_gateway', remote_jid: jid, phone_jid: phoneJid, message_id: message.key.id },
-    eligible_for_ai: true,
+    raw_payload: { _secretaria_source: 'pilot_gateway', remote_jid: remoteJid, identity_jid: jid, phone_jid: phoneJid, message_id: message.key.id },
+    eligible_for_ai: !fromMe,
   }).select('id').single()
 
   if (messageError?.code === '23505') return
   if (messageError || !inserted) throw messageError || new Error('message_not_created')
 
-  await admin.from('message_jobs').upsert({ company_id: companyId, message_id: inserted.id }, { onConflict: 'message_id', ignoreDuplicates: true })
   await admin.from('pilot_whatsapp_sessions').update({ last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('company_id', companyId)
+
+  // Mensagens enviadas pelo empresário são guardadas apenas como contexto.
+  if (fromMe) return
+  await admin.from('message_jobs').upsert({ company_id: companyId, message_id: inserted.id }, { onConflict: 'message_id', ignoreDuplicates: true })
 
   const response = await fetch(`${config.supabaseUrl}/functions/v1/process-message`, {
     method: 'POST', headers: { 'content-type': 'application/json', 'x-worker-secret': config.workerSecret },

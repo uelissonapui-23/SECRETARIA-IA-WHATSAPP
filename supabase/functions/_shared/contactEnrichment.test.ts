@@ -17,3 +17,8 @@ Deno.test('extracts explicitly shared profile data', () => {
 Deno.test('does not infer an address from an unrelated phrase', () => {
   assertEquals(extractContactEnrichment('vamos nos encontrar perto da praça'), {})
 })
+
+Deno.test('accepts a bare name only after the business asks who is speaking', () => {
+  assertEquals(extractContactEnrichment('Uelisson', 'Com quem eu falo mesmo?'), { name: 'Uelisson' })
+  assertEquals(extractContactEnrichment('A visita é para Maria', 'Pode confirmar o horário?'), {})
+})

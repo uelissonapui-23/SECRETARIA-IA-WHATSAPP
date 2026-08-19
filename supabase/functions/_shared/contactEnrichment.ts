@@ -10,7 +10,13 @@ export type ContactEnrichment = {
 
 const clean = (value: string) => value.trim().replace(/[.,;]+$/, '').replace(/\s+/g, ' ').slice(0, 300)
 
-export function extractContactEnrichment(text: string): ContactEnrichment {
+const asksIdentity = (text: string) => /\b(com\s+quem\s+(?:eu\s+)?falo|quem\s+(?:está|esta|tá|ta)\s+falando|qual\s+(?:é|e)\s+(?:o\s+)?seu\s+nome|quem\s+(?:é|e)\s+você)\b/i.test(text)
+const bareName = (text: string) => {
+  const value = clean(text)
+  return /^[\p{L}][\p{L}'-]*(?:\s+[\p{L}][\p{L}'-]*){0,3}$/u.test(value) && value.length >= 2 ? value : null
+}
+
+export function extractContactEnrichment(text: string, previousOutboundText = ''): ContactEnrichment {
   const result: ContactEnrichment = {}
   const email = text.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i)?.[0]
   if (email) result.email = email.toLowerCase()
@@ -26,6 +32,10 @@ export function extractContactEnrichment(text: string): ContactEnrichment {
   for (const [key, pattern] of patterns) {
     const value = text.match(pattern)?.[1]
     if (value) result[key] = key === 'phone' ? value.replace(/\D/g, '').slice(0, 20) : clean(value)
+  }
+  if (!result.name && asksIdentity(previousOutboundText)) {
+    const answer = bareName(text.replace(/^(?:oi,?\s*)?(?:aqui\s+(?:é|e)\s+|sou\s+(?:o|a)?\s*)/i, ''))
+    if (answer) result.name = answer
   }
   return result
 }

@@ -10,5 +10,7 @@ describe('aprendizado seguro de agenda',()=>{
   it('normaliza abreviações comuns',()=>expect(normalizeWhatsAppText('qro agnd amnh 10hrs')).toContain('quero agendar amanhã 10horas'))
   it('identifica reagendamento abreviado',()=>{const[c]=analyzeText('remarc p amnh 16h','','',{minConfidence:.65,allowMultiple:true});expect(c.extracted_data).toMatchObject({action:'reschedule',when_text:'amanhã',time_text:'16:00'})})
   it('identifica cancelamento abreviado',()=>{const[c]=analyzeText('canc meu horario','','',{minConfidence:.65,allowMultiple:true});expect(c.extracted_data).toMatchObject({action:'cancel'})})
+  it('prioriza reagendamento atual mesmo com criação no histórico',()=>{const[c]=analyzeText('remarc p amnh 16h','qro agnd uma visita amnh 9hrs','',{minConfidence:.65,allowMultiple:true});expect(c.extracted_data).toMatchObject({action:'reschedule',time_text:'16:00'})})
+  it('prioriza cancelamento atual mesmo com agendamento no histórico',()=>{const[c]=analyzeText('canc meu horario','qro agnd uma visita amnh 9hrs','',{minConfidence:.65,allowMultiple:true});expect(c.extracted_data).toMatchObject({action:'cancel'})})
   it('corrige erros prováveis em palavras operacionais',()=>{const[c]=analyzeText('qro ajendar uma vizita amanha as 9h','','',{minConfidence:.65,allowMultiple:true});expect(c.extracted_data).toMatchObject({action:'create',when_text:'amanhã',time_text:'09:00'})})
 })
