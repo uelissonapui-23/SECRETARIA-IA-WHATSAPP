@@ -13,6 +13,7 @@ export type Contact = {
   profile_name?: string | null
   identified_names?: string[]
   shared_number_suspected?: boolean
+  shared_number_confirmed?: boolean
   identity_alert?: string | null
   tags?: string[]
   last_interaction_at?: string | null

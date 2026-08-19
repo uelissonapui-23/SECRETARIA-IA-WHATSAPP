@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
         const normalizeName=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('pt-BR');const known=Array.isArray(currentContact?.identified_names)?currentContact.identified_names.filter((value:unknown):value is string=>typeof value==='string'):[];const detected=contactEnrichment.name;const alreadyKnown=known.some((value:string)=>normalizeName(value)===normalizeName(detected))
         if(known.length===0){updates.name=detected;updates.identified_names=[detected]}
         else if(alreadyKnown){updates.name=currentContact?.name??detected;updates.identified_names=known}
-        else{const names=[...known,detected].slice(-8);delete updates.name;updates.identified_names=names;updates.shared_number_suspected=true;updates.identity_alert=`Possível número compartilhado entre: ${names.join(', ')}`}
+        else{const names=[...known,detected].slice(-8);delete updates.name;updates.identified_names=names;updates.shared_number_suspected=true;updates.shared_number_confirmed=false;updates.identity_alert=`Possível número compartilhado entre: ${names.join(', ')}`}
       }
       const{error:contactUpdateError}=await supabase.from('contacts').update(updates).eq('id',message.contact_id).eq('company_id',message.company_id);if(contactUpdateError)throw new Error(`contact_enrichment_failed:${contactUpdateError.code??'unknown'}`);await supabase.from('audit_logs').insert({company_id:message.company_id,action:updates.shared_number_suspected?'contact_shared_number_detected':'contact_profile_enriched',entity_type:'contact',entity_id:message.contact_id,metadata:{fields:enrichedFields,source_message_id:message.id,shared_number_suspected:updates.shared_number_suspected===true}})
     }
