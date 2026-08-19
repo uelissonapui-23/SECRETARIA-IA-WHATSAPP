@@ -4,8 +4,8 @@ export type AnalyzeOptions={minConfidence:number;allowMultiple:boolean;monitors?
 
 const monitorKey:Record<SuggestionType,string>={appointment:'monitor_appointments',task:'monitor_tasks',order:'monitor_orders',quote:'monitor_quotes',payment_promise:'monitor_payment_promises',follow_up:'monitor_follow_ups',awaiting_reply:'monitor_awaiting_reply',deadline:'monitor_deadlines'}
 const money=(text:string)=>{const m=text.match(/(?:r\$\s*)(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:[.,]\d{2})?)|(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:[.,]\d{2})?)\s*(?:reais|real)\b/i);const raw=m?.[1]??m?.[2];if(!raw)return undefined;const n=Number(raw.replace(/\./g,'').replace(',','.'));return Number.isFinite(n)?n:undefined}
-const time=(text:string)=>{const m=text.match(/\b(?:às?\s*)?(\d{1,2})(?::(\d{2}))?\s*h(?:oras?)?\b|\b(\d{1,2}):(\d{2})\b/i);if(!m)return undefined;const h=Number(m[1]??m[3]);const min=Number(m[2]??m[4]??0);return h<24&&min<60?`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`:undefined}
-const when=(text:string)=>text.match(/\b(hoje|amanh[ãa]|depois de amanh[ãa]|segunda(?:-feira)?|terça(?:-feira)?|ter[cç]a(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?|s[áa]bado|domingo|semana que vem|m[eê]s que vem)\b/i)?.[1]
+const time=(text:string)=>{const m=text.match(/\b(?:às?\s*)?(\d{1,2})\s*h(?:\s*(\d{2}))?(?:oras?)?\b|\b(\d{1,2}):(\d{2})\b/i);if(!m)return undefined;const h=Number(m[1]??m[3]);const min=Number(m[2]??m[4]??0);return h<24&&min<60?`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`:undefined}
+const when=(text:string)=>text.match(/(hoje|depois de amanh[ãa]|amanh[ãa]|segunda(?:-feira)?|terça(?:-feira)?|ter[cç]a(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?|s[áa]bado|domingo|semana que vem|m[eê]s que vem)/i)?.[1]
 function enabled(type:SuggestionType,o:AnalyzeOptions){return o.monitors?.[monitorKey[type]]!==false}
 function add(list:Candidate[],candidate:Candidate,o:AnalyzeOptions){if(enabled(candidate.type,o)&&candidate.confidence>=o.minConfidence&&!list.some(x=>x.type===candidate.type))list.push(candidate)}
 
