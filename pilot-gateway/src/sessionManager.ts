@@ -7,20 +7,31 @@ import { admin } from './db.js'
 import { ingestIncoming } from './ingest.js'
 import { config } from './config.js'
 
-type Runtime = { socket: WASocket; qrDataUrl: string | null; reconnects: number; closing: boolean }
+type Runtime = { socket: WASocket; qrDataUrl: string | null; reconnects: number; closing: boolean; connection: 'connecting' | 'open' | 'closed' }
 const runtimes = new Map<string, Runtime>()
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' })
 
 async function patch(companyId: string, values: Record<string, unknown>) {
-  await admin.from('pilot_whatsapp_sessions').upsert({ company_id: companyId, gateway_instance: config.instance, updated_at: new Date().toISOString(), ...values }, { onConflict: 'company_id' })
+  const { error } = await admin.from('pilot_whatsapp_sessions').upsert({ company_id: companyId, gateway_instance: config.instance, updated_at: new Date().toISOString(), ...values }, { onConflict: 'company_id' })
+  if (error) logger.error({ companyId, code: error.code, message: error.message }, 'pilot session status persistence failed')
+  return !error
 }
 
 export async function startSession(companyId: string) {
-  if (runtimes.has(companyId)) return
+  const existing = runtimes.get(companyId)
+  if (existing) {
+    if (existing.connection === 'open') {
+      const jid = existing.socket.user?.id || null
+      await patch(companyId, { status: 'connected', whatsapp_jid: jid, display_phone_number: jid?.split(':')[0] || null, last_connected_at: new Date().toISOString(), last_error: null })
+    } else {
+      await patch(companyId, { status: 'connecting', last_error: null })
+    }
+    return
+  }
   await patch(companyId, { status: 'connecting', last_error: null })
   const auth = await dbAuthState(companyId)
   const socket = makeWASocket({ auth: auth.state, logger, browser: Browsers.ubuntu('Secretaria IA Pilot'), markOnlineOnConnect: false, syncFullHistory: false, generateHighQualityLinkPreview: false })
-  const runtime: Runtime = { socket, qrDataUrl: null, reconnects: 0, closing: false }
+  const runtime: Runtime = { socket, qrDataUrl: null, reconnects: 0, closing: false, connection: 'connecting' }
   runtimes.set(companyId, runtime)
 
   socket.ev.on('creds.update', auth.saveCreds)
@@ -60,11 +71,12 @@ export async function startSession(companyId: string) {
       await patch(companyId, { status: 'qr_ready' })
     }
     if (connection === 'open') {
-      runtime.qrDataUrl = null; runtime.reconnects = 0
+      runtime.qrDataUrl = null; runtime.reconnects = 0; runtime.connection = 'open'
       const jid = socket.user?.id || null
       await patch(companyId, { status: 'connected', whatsapp_jid: jid, display_phone_number: jid?.split(':')[0] || null, last_connected_at: new Date().toISOString(), last_error: null })
     }
     if (connection === 'close') {
+      runtime.connection = 'closed'
       runtimes.delete(companyId)
       if (runtime.closing) return
       const code = lastDisconnect?.error instanceof Boom ? lastDisconnect.error.output.statusCode : 0
@@ -86,8 +98,16 @@ export async function stopSession(companyId: string, erase = true) {
 }
 
 export async function status(companyId: string) {
-  const { data } = await admin.from('pilot_whatsapp_sessions').select('status,display_phone_number,last_connected_at,last_message_at,last_error').eq('company_id', companyId).maybeSingle()
-  return { ...(data || { status: 'disconnected' }), qr_data_url: runtimes.get(companyId)?.qrDataUrl || null }
+  const { data, error } = await admin.from('pilot_whatsapp_sessions').select('status,display_phone_number,last_connected_at,last_message_at,last_error').eq('company_id', companyId).maybeSingle()
+  if (error) logger.error({ companyId, code: error.code, message: error.message }, 'pilot session status query failed')
+  const runtime = runtimes.get(companyId)
+  if (runtime?.connection === 'open') {
+    const jid = runtime.socket.user?.id || null
+    if (data?.status !== 'connected') void patch(companyId, { status: 'connected', whatsapp_jid: jid, display_phone_number: jid?.split(':')[0] || null, last_error: null })
+    return { ...(data || {}), status: 'connected', display_phone_number: data?.display_phone_number || jid?.split(':')[0] || null, qr_data_url: null }
+  }
+  if (runtime) return { ...(data || {}), status: runtime.qrDataUrl ? 'qr_ready' : 'connecting', qr_data_url: runtime.qrDataUrl }
+  return { ...(data || { status: 'disconnected' }), qr_data_url: null }
 }
 
 export async function restoreAll() {
