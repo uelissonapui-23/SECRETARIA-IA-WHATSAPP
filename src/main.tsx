@@ -7,6 +7,7 @@ import { CompanyProvider } from './company/CompanyProvider'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './styles.css'
 import { BrandingProvider } from './branding/BrandingProvider'
+import './lib/pwaInstall'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
