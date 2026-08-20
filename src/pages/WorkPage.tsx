@@ -41,9 +41,9 @@ export function WorkPage() {
   const [busy,setBusy]=useState(false)
   const [query,setQuery]=useState('')
 
-  const load=useCallback(async()=>{
+  const load=useCallback(async(silent=false)=>{
     if(!currentCompany)return
-    setLoading(true);setError('')
+    if(!silent)setLoading(true);setError('')
     try{
       const[t,w,c]=await Promise.all([
         supabase.from('tasks').select('*').eq('company_id',currentCompany.id).order('created_at',{ascending:false}),
@@ -52,10 +52,10 @@ export function WorkPage() {
       ])
       if(t.error)throw t.error;if(w.error)throw w.error;if(c.error)throw c.error
       setTasks((t.data??[]) as Task[]);setWork((w.data??[]) as WorkItem[]);setContacts((c.data??[]) as Contact[])
-    }catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar o trabalho.')}finally{setLoading(false)}
+    }catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar o trabalho.')}finally{if(!silent)setLoading(false)}
   },[currentCompany])
   useEffect(()=>{void load()},[load])
-  useOperationalAutoRefresh(currentCompany?.id,load,['tasks','work_items','contacts'])
+  useOperationalAutoRefresh(currentCompany?.id,()=>load(true),['tasks','work_items','contacts'])
 
   const openItems=useMemo(()=>[...tasks.filter(t=>t.status!=='done'),...work.filter(w=>w.status!=='done'&&w.status!=='cancelled')],[tasks,work])
   const overdue=openItems.filter(i=>isOverdue(i.due_at)).length

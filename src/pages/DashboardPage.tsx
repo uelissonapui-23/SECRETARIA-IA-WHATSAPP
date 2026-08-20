@@ -32,9 +32,9 @@ export function DashboardPage() {
   const [quickPhone, setQuickPhone] = useState('')
   const [quickBusy, setQuickBusy] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent=false) => {
     if (!currentCompany) return
-    setLoading(true); setError('')
+    if(!silent)setLoading(true); setError('')
     const now = new Date()
     const start = new Date(now); start.setHours(0,0,0,0)
     const end = new Date(now); end.setHours(23,59,59,999)
@@ -51,11 +51,11 @@ export function DashboardPage() {
       setWorkItems((workResult.data ?? []) as WorkItem[])
       setSuggestions((suggestionResult.data ?? []) as Suggestion[])
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar a visão do dia.') }
-    finally { setLoading(false) }
+    finally { if(!silent)setLoading(false) }
   }, [currentCompany])
 
   useEffect(() => { void load() }, [load])
-  useOperationalAutoRefresh(currentCompany?.id,load,['appointments','tasks','work_items','ai_suggestions'])
+  useOperationalAutoRefresh(currentCompany?.id,()=>load(true),['appointments','tasks','work_items','ai_suggestions'])
 
   const overdueItems = useMemo(() => [
     ...tasks.filter((item)=>isOverdue(item.due_at)).map((item)=>({ id:`task-${item.id}`, title:item.title, due:item.due_at })),

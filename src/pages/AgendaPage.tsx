@@ -45,9 +45,9 @@ export function AgendaPage() {
   const [reminderMinutes, setReminderMinutes] = useState(60)
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent=false) => {
     if (!currentCompany) return
-    setLoading(true)
+    if(!silent)setLoading(true)
     setError('')
     try {
       const [a, c] = await Promise.all([
@@ -61,12 +61,12 @@ export function AgendaPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível carregar a agenda.')
     } finally {
-      setLoading(false)
+      if(!silent)setLoading(false)
     }
   }, [currentCompany])
 
   useEffect(() => { void load() }, [load])
-  useOperationalAutoRefresh(currentCompany?.id,load,['appointments','contacts'])
+  useOperationalAutoRefresh(currentCompany?.id,()=>load(true),['appointments','contacts'])
 
   const upcoming = useMemo(() => items.filter((i) => i.status === 'scheduled' && new Date(i.starts_at).getTime() >= Date.now() - 86_400_000), [items])
   const history = useMemo(() => items.filter((i) => i.status !== 'scheduled' || new Date(i.starts_at).getTime() < Date.now() - 86_400_000).sort((a,b)=>new Date(b.starts_at).getTime()-new Date(a.starts_at).getTime()), [items])
