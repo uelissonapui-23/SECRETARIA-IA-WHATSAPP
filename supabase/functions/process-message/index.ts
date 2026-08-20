@@ -38,7 +38,13 @@ Deno.serve(async (req) => {
     if(aiAllowed){try{const ai=await analyzeWithAi({text:message.body_text,context:contextText,memory:memoryText,minConfidence:opts.minConfidence,allowMultiple:opts.allowMultiple,maxCandidates:Number(policy?.ai_max_candidates??4)});provider=ai.provider;model=ai.model;promptTokens=ai.usage.promptTokens;completionTokens=ai.usage.completionTokens;totalTokens=ai.usage.totalTokens;estimatedCostUsd=ai.usage.estimatedCostUsd;engine=mode==='hybrid'?'hybrid-v1':'llm-v1';candidates=mode==='hybrid'?merge(rules,ai.candidates,opts.allowMultiple):ai.candidates}catch(e){if(policy?.fallback_to_rules===false&&mode==='llm')throw e;fallbackUsed=true;engine='rules-fallback-v1';candidates=rules}}
     else if(wantsAi){fallbackUsed=true;engine='rules-fallback-v1'}
     const explicitOrder=/\b(pedido|encomenda|produzir|produ[cç][aã]o|quero\s+\d+|preciso (?:fazer|de) (?:um )?(?:novo )?pedido)\b/i.test(normalizeWhatsAppText(message.body_text))
-    if(explicitOrder){const ruleOrder=rules.find(item=>item.type==='order');candidates=candidates.filter(item=>item.type!=='appointment');if(ruleOrder&&!candidates.some(item=>item.type==='order'))candidates.unshift(ruleOrder);if(!opts.allowMultiple)candidates=candidates.filter(item=>item.type==='order').slice(0,1)}
+    if(explicitOrder){
+      const forcedRules=analyzeText(message.body_text,'','',{...opts,allowMultiple:true,monitors:{...(settings??{}),monitor_orders:true}})
+      const ruleOrder=forcedRules.find(item=>item.type==='order')??{type:'order' as const,title:'Novo pedido identificado',summary:message.body_text,reason:'A mensagem atual declara explicitamente um pedido.',confidence:.94,extracted_data:{}}
+      candidates=candidates.filter(item=>item.type!=='appointment'&&item.type!=='order')
+      candidates.unshift(ruleOrder)
+      if(!opts.allowMultiple)candidates=candidates.slice(0,1)
+    }
     const{data:run,error:runError}=await supabase.from('analysis_runs').insert({company_id:message.company_id,message_id:message.id,source:body.source??'message',engine,status:'done',context_count:context.length,memory_count:memories.length,candidates:candidates.length,suggestions_created:0,duration_ms:0,provider,model,prompt_tokens:promptTokens,completion_tokens:completionTokens,total_tokens:totalTokens,estimated_cost_usd:estimatedCostUsd,fallback_used:fallbackUsed}).select('id').single();if(runError||!run?.id)throw new Error(`analysis_run_insert_failed:${runError?.code??'missing_id'}`);runId=run.id
     const timezone=typeof settings?.timezone==='string'?settings.timezone:'America/Manaus'
     const{data:feedbackRows}=policy?.learning_enabled===false?{data:[]} : await supabase.from('analysis_feedback').select('verdict').eq('company_id',message.company_id).eq('suggestion_type','appointment').in('verdict',['correct','incorrect']).order('created_at',{ascending:false}).limit(100)
