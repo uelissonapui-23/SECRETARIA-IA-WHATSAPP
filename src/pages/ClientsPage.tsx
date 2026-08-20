@@ -5,6 +5,7 @@ import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { formatDateTime } from '../lib/format'
 import type { Appointment, Contact, ContactPerson, OperationalMemory, Task, WorkItem } from '../lib/operationalTypes'
+import { useOperationalAutoRefresh } from '../lib/useOperationalAutoRefresh'
 
 const memoryKinds = [
   { v:'context', l:'Contexto' }, { v:'preference', l:'Preferência' }, { v:'commitment', l:'Compromisso' }, { v:'important', l:'Importante' }, { v:'instruction', l:'Instrução' },
@@ -47,6 +48,7 @@ export function ClientsPage(){
 
   const load=useCallback(async()=>{if(!currentCompany)return;setLoading(true);setError('');const{data,error:err}=await supabase.from('contacts').select('*').eq('company_id',currentCompany.id).order('name',{ascending:true,nullsFirst:false});if(err)setError(err.message);else setItems((data??[]) as Contact[]);setLoading(false)},[currentCompany])
   useEffect(()=>{void load()},[load])
+  useOperationalAutoRefresh(currentCompany?.id,load,['contacts','contact_people'])
 
   const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return q?items.filter(i=>[i.name,i.phone,i.email,i.notes,i.home_address,i.work_address,i.store_address,i.company_name].some(v=>v?.toLowerCase().includes(q))):items},[items,query])
 

@@ -5,6 +5,7 @@ import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { dateTimeLocalToIso, formatDateTime, toDateTimeLocal } from '../lib/format'
 import type { Appointment, Contact } from '../lib/operationalTypes'
+import { useOperationalAutoRefresh } from '../lib/useOperationalAutoRefresh'
 
 const kinds = [
   { v: 'appointment', l: 'Agendamento' },
@@ -65,6 +66,7 @@ export function AgendaPage() {
   }, [currentCompany])
 
   useEffect(() => { void load() }, [load])
+  useOperationalAutoRefresh(currentCompany?.id,load,['appointments','contacts'])
 
   const upcoming = useMemo(() => items.filter((i) => i.status === 'scheduled' && new Date(i.starts_at).getTime() >= Date.now() - 86_400_000), [items])
   const history = useMemo(() => items.filter((i) => i.status !== 'scheduled' || new Date(i.starts_at).getTime() < Date.now() - 86_400_000).sort((a,b)=>new Date(b.starts_at).getTime()-new Date(a.starts_at).getTime()), [items])

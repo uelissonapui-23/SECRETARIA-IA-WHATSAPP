@@ -5,6 +5,7 @@ import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { dateTimeLocalToIso, formatDateTime, isOverdue, toDateTimeLocal } from '../lib/format'
 import type { Appointment, Suggestion, Task, WorkItem } from '../lib/operationalTypes'
+import { useOperationalAutoRefresh } from '../lib/useOperationalAutoRefresh'
 
 type QuickKind = 'appointment' | 'task' | 'client'
 
@@ -54,6 +55,7 @@ export function DashboardPage() {
   }, [currentCompany])
 
   useEffect(() => { void load() }, [load])
+  useOperationalAutoRefresh(currentCompany?.id,load,['appointments','tasks','work_items','ai_suggestions'])
 
   const overdueItems = useMemo(() => [
     ...tasks.filter((item)=>isOverdue(item.due_at)).map((item)=>({ id:`task-${item.id}`, title:item.title, due:item.due_at })),

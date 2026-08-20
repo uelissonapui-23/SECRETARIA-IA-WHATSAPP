@@ -5,6 +5,7 @@ import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { dateTimeLocalToIso, formatDateTime, formatMoney, isOverdue, toDateTimeLocal } from '../lib/format'
 import type { Contact, Task, WorkItem } from '../lib/operationalTypes'
+import { useOperationalAutoRefresh } from '../lib/useOperationalAutoRefresh'
 
 const workTypes = [
   { v:'order', l:'Pedido' }, { v:'service', l:'Serviço' }, { v:'quote', l:'Orçamento' }, { v:'payment', l:'Pagamento' },
@@ -54,6 +55,7 @@ export function WorkPage() {
     }catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar o trabalho.')}finally{setLoading(false)}
   },[currentCompany])
   useEffect(()=>{void load()},[load])
+  useOperationalAutoRefresh(currentCompany?.id,load,['tasks','work_items','contacts'])
 
   const openItems=useMemo(()=>[...tasks.filter(t=>t.status!=='done'),...work.filter(w=>w.status!=='done'&&w.status!=='cancelled')],[tasks,work])
   const overdue=openItems.filter(i=>isOverdue(i.due_at)).length
