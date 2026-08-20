@@ -4,22 +4,22 @@ import { useNavigate } from 'react-router-dom'
 import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { formatDateTime } from '../lib/format'
-import type { Appointment, Contact, OperationalMemory, Task, WorkItem } from '../lib/operationalTypes'
+import type { Appointment, Contact, ContactPerson, OperationalMemory, Task, WorkItem } from '../lib/operationalTypes'
 
 const memoryKinds = [
   { v:'context', l:'Contexto' }, { v:'preference', l:'Preferência' }, { v:'commitment', l:'Compromisso' }, { v:'important', l:'Importante' }, { v:'instruction', l:'Instrução' },
 ] as const
 
-type ClientDetails = { appointments:Appointment[]; tasks:Task[]; work:WorkItem[]; memories:OperationalMemory[] }
+type ClientDetails = { appointments:Appointment[]; tasks:Task[]; work:WorkItem[]; memories:OperationalMemory[]; people:ContactPerson[] }
 
 
-type ClientTimelineItem = { id:string; title:string; meta:string; at:string|null; kind:'Agenda'|'Tarefa'|'Trabalho'; closed:boolean }
+type ClientTimelineItem = { id:string; rowId:string; table:'appointments'|'tasks'|'work_items'; title:string; meta:string; at:string|null; kind:'Agenda'|'Tarefa'|'Trabalho'; closed:boolean; person_id:string|null; person_name:string|null }
 
 function buildClientTimeline(details:ClientDetails):ClientTimelineItem[]{
   const items:ClientTimelineItem[] = [
-    ...details.appointments.map(i=>({id:`a-${i.id}`,title:i.title,meta:`Agenda · ${formatDateTime(i.starts_at)}`,at:i.starts_at,kind:'Agenda' as const,closed:i.status==='completed'||i.status==='cancelled'})),
-    ...details.tasks.map(i=>({id:`t-${i.id}`,title:i.title,meta:`Tarefa · ${formatDateTime(i.due_at)}`,at:i.due_at??i.created_at,kind:'Tarefa' as const,closed:i.status==='done'})),
-    ...details.work.map(i=>({id:`w-${i.id}`,title:i.title,meta:`Trabalho · ${formatDateTime(i.due_at)}`,at:i.due_at??i.created_at,kind:'Trabalho' as const,closed:i.status==='done'||i.status==='cancelled'})),
+    ...details.appointments.map(i=>({id:`a-${i.id}`,rowId:i.id,table:'appointments' as const,title:i.title,meta:`Agenda · ${formatDateTime(i.starts_at)}`,at:i.starts_at,kind:'Agenda' as const,closed:i.status==='completed'||i.status==='cancelled',person_id:i.person_id??null,person_name:i.person_name??null})),
+    ...details.tasks.map(i=>({id:`t-${i.id}`,rowId:i.id,table:'tasks' as const,title:i.title,meta:`Tarefa · ${formatDateTime(i.due_at)}`,at:i.due_at??i.created_at,kind:'Tarefa' as const,closed:i.status==='done',person_id:i.person_id??null,person_name:i.person_name??null})),
+    ...details.work.map(i=>({id:`w-${i.id}`,rowId:i.id,table:'work_items' as const,title:i.title,meta:`Trabalho · ${formatDateTime(i.due_at)}`,at:i.due_at??i.created_at,kind:'Trabalho' as const,closed:i.status==='done'||i.status==='cancelled',person_id:i.person_id??null,person_name:i.person_name??null})),
   ]
   return items.sort((a,b)=>{
     const aTime=a.at?new Date(a.at).getTime():0
@@ -43,6 +43,7 @@ export function ClientsPage(){
   const[detailBusy,setDetailBusy]=useState(false)
   const[name,setName]=useState('');const[phone,setPhone]=useState('');const[email,setEmail]=useState('');const[notes,setNotes]=useState('');const[homeAddress,setHomeAddress]=useState('');const[workAddress,setWorkAddress]=useState('');const[storeAddress,setStoreAddress]=useState('');const[companyName,setCompanyName]=useState('');const[busy,setBusy]=useState(false)
   const[memoryContent,setMemoryContent]=useState('');const[memoryKind,setMemoryKind]=useState<OperationalMemory['kind']>('context');const[memoryBusy,setMemoryBusy]=useState(false)
+  const[personName,setPersonName]=useState('');const[personBusy,setPersonBusy]=useState('')
 
   const load=useCallback(async()=>{if(!currentCompany)return;setLoading(true);setError('');const{data,error:err}=await supabase.from('contacts').select('*').eq('company_id',currentCompany.id).order('name',{ascending:true,nullsFirst:false});if(err)setError(err.message);else setItems((data??[]) as Contact[]);setLoading(false)},[currentCompany])
   useEffect(()=>{void load()},[load])
@@ -73,14 +74,15 @@ export function ClientsPage(){
     if(!currentCompany)return
     setSelected(contact);setDetailBusy(true);setDetails(null);setError('')
     try{
-      const[a,t,w,m]=await Promise.all([
+      const[a,t,w,m,p]=await Promise.all([
         supabase.from('appointments').select('*').eq('company_id',currentCompany.id).eq('contact_id',contact.id).order('starts_at',{ascending:false}).limit(20),
         supabase.from('tasks').select('*').eq('company_id',currentCompany.id).eq('contact_id',contact.id).order('created_at',{ascending:false}).limit(20),
         supabase.from('work_items').select('*').eq('company_id',currentCompany.id).eq('contact_id',contact.id).order('created_at',{ascending:false}).limit(20),
         supabase.from('operational_memories').select('*').eq('company_id',currentCompany.id).eq('contact_id',contact.id).eq('is_active',true).order('created_at',{ascending:false}),
+        supabase.from('contact_people').select('*').eq('company_id',currentCompany.id).eq('contact_id',contact.id).eq('is_active',true).order('is_primary',{ascending:false}).order('name'),
       ])
-      for(const r of[a,t,w,m])if(r.error)throw r.error
-      setDetails({appointments:(a.data??[]) as Appointment[],tasks:(t.data??[]) as Task[],work:(w.data??[]) as WorkItem[],memories:(m.data??[]) as OperationalMemory[]})
+      for(const r of[a,t,w,m,p])if(r.error)throw r.error
+      setDetails({appointments:(a.data??[]) as Appointment[],tasks:(t.data??[]) as Task[],work:(w.data??[]) as WorkItem[],memories:(m.data??[]) as OperationalMemory[],people:(p.data??[]) as ContactPerson[]})
     }catch(e){setError(e instanceof Error?e.message:'Não foi possível carregar o histórico do cliente.')}finally{setDetailBusy(false)}
   },[currentCompany])
 
@@ -95,6 +97,12 @@ export function ClientsPage(){
 
   async function removeMemory(memory:OperationalMemory){if(!currentCompany||!selected)return;const{error:err}=await supabase.from('operational_memories').delete().eq('id',memory.id).eq('company_id',currentCompany.id);if(err)setError(err.message);else await loadDetails(selected)}
 
+  async function addPerson(e:FormEvent){e.preventDefault();if(!currentCompany||!selected||personName.trim().length<2)return;setPersonBusy('add');setError('');const{error:err}=await supabase.from('contact_people').insert({company_id:currentCompany.id,contact_id:selected.id,name:personName.trim(),source:'manual',is_primary:!details?.people.length});setPersonBusy('');if(err){setError(err.code==='23505'?'Essa pessoa já está cadastrada neste número.':err.message);return}setPersonName('');await loadDetails(selected)}
+  async function editPerson(person:ContactPerson){if(!currentCompany||!selected)return;const next=window.prompt('Nome correto da pessoa',person.name)?.trim();if(!next||next===person.name)return;setPersonBusy(person.id);const{error:err}=await supabase.from('contact_people').update({name:next,source:'confirmed'}).eq('id',person.id).eq('company_id',currentCompany.id);setPersonBusy('');if(err)setError(err.message);else await loadDetails(selected)}
+  async function removePerson(person:ContactPerson){if(!currentCompany||!selected||!window.confirm(`Remover ${person.name} deste número? Os históricos existentes continuarão preservados.`))return;setPersonBusy(person.id);const{error:err}=await supabase.from('contact_people').update({is_active:false}).eq('id',person.id).eq('company_id',currentCompany.id);setPersonBusy('');if(err)setError(err.message);else await loadDetails(selected)}
+  async function setPrimaryPerson(person:ContactPerson){if(!currentCompany||!selected||!details)return;setPersonBusy(person.id);const ids=details.people.map(p=>p.id);if(ids.length)await supabase.from('contact_people').update({is_primary:false}).in('id',ids).eq('company_id',currentCompany.id);const{error:err}=await supabase.from('contact_people').update({is_primary:true}).eq('id',person.id).eq('company_id',currentCompany.id);if(!err)await supabase.from('contacts').update({current_person_name:person.name}).eq('id',selected.id).eq('company_id',currentCompany.id);setPersonBusy('');if(err)setError(err.message);else await loadDetails(selected)}
+  async function assignTimelinePerson(item:ClientTimelineItem,personId:string){if(!currentCompany||!selected||!details)return;const person=details.people.find(p=>p.id===personId);const{error:err}=await supabase.from(item.table).update({person_id:person?.id??null,person_name:person?.name??null}).eq('id',item.rowId).eq('company_id',currentCompany.id);if(err)setError(err.message);else await loadDetails(selected)}
+
   return <section>
     <div className="page-heading"><div><span className="eyebrow">CLIENTES</span><h1>Relacionamento leve, contexto forte</h1><p>Dados essenciais, histórico operacional e memória útil sem virar um CRM pesado.</p></div><button className="primary-button action-button" onClick={openNew}><Plus size={17}/>Novo cliente</button></div>
     {error&&<div className="form-error page-message">{error}</div>}
@@ -108,7 +116,8 @@ export function ClientsPage(){
       {detailBusy||!details?<div className="loading-block">Carregando histórico...</div>:<div className="client-detail-grid">
         <div className="client-detail-main">
           <div className="client-stats"><div><CalendarDays size={18}/><strong>{details.appointments.length}</strong><span>agenda</span></div><div><ClipboardList size={18}/><strong>{details.tasks.length+details.work.length}</strong><span>trabalho</span></div><div><Sparkles size={18}/><strong>{details.memories.length}</strong><span>memórias</span></div></div>
-          <div className="panel-card compact"><div className="panel-head"><div><span className="eyebrow">HISTÓRICO UNIFICADO</span><h3>Últimas atividades</h3><p className="panel-help">Agenda, tarefas e trabalhos aparecem juntos em ordem de data.</p></div></div><div className="compact-list client-timeline">{buildClientTimeline(details).slice(0,16).map(i=><div className={`compact-row client-timeline-row kind-${i.kind.toLowerCase()} ${i.closed?'is-closed':''}`} key={i.id}><div className="list-icon">{i.kind==='Agenda'?<CalendarDays size={15}/>:<ClipboardList size={15}/>}</div><div className="grow"><strong>{i.title}</strong><span>{i.meta}</span></div><span className="mini-status">{i.closed?'Finalizado':i.kind}</span></div>)}{!details.appointments.length&&!details.tasks.length&&!details.work.length&&<div className="inline-empty"><div className="list-icon"><ClipboardList size={17}/></div><div><strong>Sem atividade ainda</strong><span>Agenda e trabalho vinculados aparecerão aqui.</span></div></div>}</div></div>
+          <div className="panel-card contact-people-panel"><div className="panel-head"><div><span className="eyebrow">PESSOAS DESTE NÚMERO</span><h3>Quem usa este WhatsApp</h3><p className="panel-help">Separe as pessoas sem duplicar o cliente ou perder o histórico do número.</p></div><span className="mini-status">{details.people.length}</span></div><div className="contact-people-list">{details.people.map(person=><div className="contact-person-row" key={person.id}><div className="client-avatar">{person.name[0]?.toUpperCase()}</div><div className="grow"><strong>{person.name}</strong><span>{person.is_primary?'Pessoa principal':'Pessoa vinculada'} · {person.source==='message'?'identificada na conversa':'confirmada no cadastro'}</span></div><div className="heading-actions">{!person.is_primary&&<button className="secondary-button" disabled={personBusy===person.id} onClick={()=>void setPrimaryPerson(person)}>Tornar principal</button>}<button className="secondary-button" disabled={personBusy===person.id} onClick={()=>void editPerson(person)}>Editar</button><button className="icon-button small danger" disabled={personBusy===person.id} onClick={()=>void removePerson(person)} title="Remover pessoa"><Trash2 size={14}/></button></div></div>)}</div><form className="contact-person-add" onSubmit={addPerson}><input value={personName} onChange={e=>setPersonName(e.target.value)} placeholder="Nome de outra pessoa que usa este número"/><button className="secondary-button" disabled={personBusy==='add'||personName.trim().length<2}><Plus size={15}/>Adicionar pessoa</button></form></div>
+          <div className="panel-card compact"><div className="panel-head"><div><span className="eyebrow">HISTÓRICO UNIFICADO</span><h3>Últimas atividades</h3><p className="panel-help">Agenda, tarefas e trabalhos aparecem juntos e podem ser atribuídos à pessoa correta.</p></div></div><div className="compact-list client-timeline">{buildClientTimeline(details).slice(0,16).map(i=><div className={`compact-row client-timeline-row kind-${i.kind.toLowerCase()} ${i.closed?'is-closed':''}`} key={i.id}><div className="list-icon">{i.kind==='Agenda'?<CalendarDays size={15}/>:<ClipboardList size={15}/>}</div><div className="grow"><strong>{i.title}</strong><span>{i.meta}{i.person_name?` · ${i.person_name}`:''}</span></div><label className="timeline-person-select"><span>Pessoa</span><select value={i.person_id??''} onChange={e=>void assignTimelinePerson(i,e.target.value)}><option value="">Não identificada</option>{details.people.map(person=><option key={person.id} value={person.id}>{person.name}</option>)}</select></label><span className="mini-status">{i.closed?'Finalizado':i.kind}</span></div>)}{!details.appointments.length&&!details.tasks.length&&!details.work.length&&<div className="inline-empty"><div className="list-icon"><ClipboardList size={17}/></div><div><strong>Sem atividade ainda</strong><span>Agenda e trabalho vinculados aparecerão aqui.</span></div></div>}</div></div>
         </div>
         <aside className="client-memory-panel"><div><span className="eyebrow">MEMÓRIA OPERACIONAL</span><h3>O que vale lembrar</h3><p>Informações úteis para atender este cliente com contexto. Depois a IA poderá alimentar esta área automaticamente.</p></div><form className="memory-form" onSubmit={addMemory}><select value={memoryKind} onChange={e=>setMemoryKind(e.target.value as OperationalMemory['kind'])}>{memoryKinds.map(k=><option key={k.v} value={k.v}>{k.l}</option>)}</select><textarea rows={3} value={memoryContent} onChange={e=>setMemoryContent(e.target.value)} placeholder="Ex.: Prefere contato pela manhã; prometeu retorno sexta..."/><button className="primary-button" disabled={memoryBusy||!memoryContent.trim()}>{memoryBusy?'Salvando...':'Guardar memória'}</button></form><div className="memory-list">{details.memories.map(m=><div className={`memory-item importance-${m.importance}`} key={m.id}><div><span className="mini-status">{memoryKinds.find(k=>k.v===m.kind)?.l}</span><p>{m.content}</p><small>{formatDateTime(m.created_at)}</small></div><button className="icon-button small danger" onClick={()=>void removeMemory(m)}><Trash2 size={14}/></button></div>)}{!details.memories.length&&<div className="notification-empty"><Sparkles size={22}/><strong>Nenhuma memória ainda</strong><span>Guarde apenas o que realmente ajuda no atendimento.</span></div>}</div></aside>
       </div>}

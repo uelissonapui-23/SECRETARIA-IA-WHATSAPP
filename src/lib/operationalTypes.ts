@@ -21,6 +21,19 @@ export type Contact = {
   created_at: string
 }
 
+export type ContactPerson = {
+  id: string
+  company_id: string
+  contact_id: string
+  name: string
+  aliases: string[]
+  source: 'profile' | 'message' | 'manual' | 'confirmed'
+  is_primary: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export type Appointment = {
   id: string
   company_id: string
@@ -35,6 +48,7 @@ export type Appointment = {
   kind?: string
   reminder_minutes?: number
   person_name?: string | null
+  person_id?: string | null
   created_at: string
 }
 
@@ -50,6 +64,7 @@ export type Task = {
   priority?: 'low' | 'normal' | 'high' | 'urgent'
   completed_at?: string | null
   person_name?: string | null
+  person_id?: string | null
   created_at: string
 }
 
@@ -67,6 +82,7 @@ export type WorkItem = {
   priority: 'low' | 'normal' | 'high' | 'urgent'
   completed_at: string | null
   person_name?: string | null
+  person_id?: string | null
   created_at: string
 }
 
@@ -91,6 +107,7 @@ export type OperationalMemory = {
   id: string
   company_id: string
   contact_id: string | null
+  person_id?: string | null
   kind: 'context' | 'preference' | 'commitment' | 'important' | 'instruction'
   content: string
   source: 'manual' | 'conversation' | 'assistant' | 'system'
