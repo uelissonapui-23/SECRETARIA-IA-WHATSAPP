@@ -409,6 +409,7 @@ h1,h2,h3,h4,h5,h6,p,span,strong,small,label,a,button,td,th{overflow-wrap:anywher
 }
 .quick-success{background:#ecfdf5!important;border-color:#b7eadf!important;color:#11796f!important}
 @media(max-width:700px){.work-row .row-actions,.appointment-row .row-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.work-row .row-actions .icon-button,.appointment-row .row-actions .icon-button{width:100%;min-width:44px}.work-row .row-actions .secondary-button,.appointment-row .row-actions .secondary-button{min-height:40px}}
+@media(max-width:1200px){.appointment-row{display:grid;grid-template-columns:auto minmax(0,1fr)}.appointment-row .row-actions{grid-column:1/-1;width:100%;justify-content:flex-end}.appointment-row .record-title>strong{overflow-wrap:normal;word-break:normal}}
 @media(max-width:380px){.work-row .row-actions,.appointment-row .row-actions{grid-template-columns:1fr}}
 
 /* ============================================================
