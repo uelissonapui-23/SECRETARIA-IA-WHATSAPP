@@ -45,7 +45,7 @@ export function SettingsPage() {
   const [accountMessage, setAccountMessage] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [error, setError] = useState('')
-  const [section, setSection] = useState<'company'|'secretary'|'team'|'account'|'security'>('company')
+  const [section, setSection] = useState<'company'|'secretary'|'alerts'|'team'|'account'|'security'>('company')
 
   useEffect(() => {
     if (!user) return
@@ -127,6 +127,7 @@ export function SettingsPage() {
     <nav className="settings-section-tabs" aria-label="Áreas das configurações">
       <button className={section==='company'?'active':''} onClick={()=>setSection('company')}><Building2 size={17}/><span>Empresa</span></button>
       <button className={section==='secretary'?'active':''} onClick={()=>setSection('secretary')}><Sparkles size={17}/><span>Secretária</span></button>
+      <button className={section==='alerts'?'active':''} onClick={()=>setSection('alerts')}><BellRing size={17}/><span>Alertas e instalação</span></button>
       <button className={section==='team'?'active':''} onClick={()=>setSection('team')}><UsersRound size={17}/><span>Equipe</span></button>
       <button className={section==='account'?'active':''} onClick={()=>setSection('account')}><UserRound size={17}/><span>Minha conta</span></button>
       <button className={section==='security'?'active':''} onClick={()=>setSection('security')}><ShieldCheck size={17}/><span>Segurança</span></button>
@@ -155,7 +156,7 @@ export function SettingsPage() {
         <div className="privacy-box rich"><strong>Modo de observação</strong><span>A Secretária organiza e sugere. Ela não responde clientes automaticamente.</span></div>
       </form>}
 
-      {section==='secretary'&&<DeviceAlertsPanel/>}
+      {section==='alerts'&&<DeviceAlertsPanel/>}
 
       {section==='team'&&<div className="settings-card colorful-card team-card">
         <div className="settings-card-title"><span className="settings-icon violet"><UsersRound size={20}/></span><div><h2>Equipe</h2><p>Veja quem participa da empresa e o nível de acesso de cada pessoa.</p></div></div>
