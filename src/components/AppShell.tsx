@@ -1,11 +1,14 @@
 import { Bell, Bot, CalendarDays, Check, ClipboardList, Home, LogOut, MessageCircle, MoreHorizontal, Settings, ShieldCheck, Sparkles, Users, WifiOff, X } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { formatDateTime } from '../lib/format'
 import { BrandIdentity } from './BrandIdentity'
+import { showDeviceAlert, updateAppBadge } from '../lib/deviceNotifications'
+
+type AppNotification = {id:string;title:string;body:string|null;link:string|null;read_at:string|null;created_at:string;severity?:string}
 
 const baseItems = [
   { to: '/', label: 'Início', icon: Home },
@@ -27,7 +30,9 @@ export function AppShell() {
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [online, setOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine)
   const [platformRole, setPlatformRole] = useState<string|null>(null)
-  const [notifications, setNotifications] = useState<Array<{id:string;title:string;body:string|null;link:string|null;read_at:string|null;created_at:string;severity?:string}>>([])
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const notificationSeeded = useRef(false)
+  const seenNotificationIds = useRef(new Set<string>())
 
   const items = useMemo(() => {
     const masterItem = { to:'/master', label:'Área Master', icon:ShieldCheck }
@@ -42,10 +47,23 @@ export function AppShell() {
     }
     await supabase.rpc('refresh_company_notifications', { target_company_id: currentCompany.id })
     const { data } = await supabase.from('app_notifications').select('id,title,body,link,read_at,created_at,severity').eq('company_id', currentCompany.id).order('created_at', { ascending:false }).limit(16)
-    setNotifications((data ?? []) as typeof notifications)
+    const rows=(data??[]) as AppNotification[]
+    if(notificationSeeded.current){for(const item of rows){if(!item.read_at&&!seenNotificationIds.current.has(item.id))void showDeviceAlert(item)}}
+    rows.forEach(item=>seenNotificationIds.current.add(item.id))
+    notificationSeeded.current=true
+    setNotifications(rows)
   }, [currentCompany, location.pathname])
 
   useEffect(() => { void loadNotifications() }, [loadNotifications])
+  useEffect(()=>{notificationSeeded.current=false;seenNotificationIds.current.clear()},[currentCompany?.id])
+  useEffect(()=>{
+    if(!currentCompany||location.pathname.startsWith('/master'))return
+    const channel=supabase.channel(`app-alerts-${currentCompany.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'app_notifications',filter:`company_id=eq.${currentCompany.id}`},()=>void loadNotifications()).subscribe()
+    const timer=window.setInterval(()=>void loadNotifications(),30000)
+    const refresh=()=>void loadNotifications()
+    window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh)
+    return()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);void supabase.removeChannel(channel)}
+  },[currentCompany,location.pathname,loadNotifications])
   useEffect(() => {
     const syncOnline = () => setOnline(navigator.onLine)
     window.addEventListener('online', syncOnline)
@@ -70,6 +88,7 @@ export function AppShell() {
   }
 
   const unreadCount = notifications.filter((item)=>!item.read_at).length
+  useEffect(()=>{void updateAppBadge(unreadCount)},[unreadCount])
 
   async function logout() {
     setBusy(true)

@@ -5,6 +5,7 @@ import { useCompany } from '../company/CompanyProvider'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../utils/errorMessage'
 import { normalizeWorkingDays } from '../utils/onboarding'
+import { DeviceAlertsPanel } from '../components/DeviceAlertsPanel'
 
 const days = [{v:1,l:'Seg'},{v:2,l:'Ter'},{v:3,l:'Qua'},{v:4,l:'Qui'},{v:5,l:'Sex'},{v:6,l:'Sáb'},{v:0,l:'Dom'}]
 const monitorOptions = [
@@ -153,6 +154,8 @@ export function SettingsPage() {
         {message&&<div className="form-success">{message}</div>}{canEdit&&<button className="primary-button vibrant" disabled={busy}>{busy?'Salvando...':'Salvar preferências'}</button>}
         <div className="privacy-box rich"><strong>Modo de observação</strong><span>A Secretária organiza e sugere. Ela não responde clientes automaticamente.</span></div>
       </form>}
+
+      {section==='secretary'&&<DeviceAlertsPanel/>}
 
       {section==='team'&&<div className="settings-card colorful-card team-card">
         <div className="settings-card-title"><span className="settings-icon violet"><UsersRound size={20}/></span><div><h2>Equipe</h2><p>Veja quem participa da empresa e o nível de acesso de cada pessoa.</p></div></div>

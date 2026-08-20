@@ -7,7 +7,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'notification-events.js'],
+      workbox: { importScripts: ['/notification-events.js'] },
       manifest: {
         name: 'evoria Secretaria IA',
         short_name: 'evoria',

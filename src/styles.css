@@ -39,6 +39,9 @@ button,select,textarea{font:inherit}select,textarea{width:100%;border:1px solid 
   --rose-soft:#fff0f1;
   --shadow-soft:0 10px 28px rgba(42,59,84,.07);
 }
+
+.device-alert-card{display:grid;gap:18px}.device-alert-status{display:flex;gap:12px;align-items:flex-start;padding:15px;border:1px solid #dbeafe;border-radius:14px;background:#f5f9ff}.device-alert-status>div{display:grid;gap:4px}.device-alert-status span,.device-help{color:#64748b;font-size:12px;line-height:1.5}.device-sound-row{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:12px;align-items:end}.device-sound-row label{display:grid;gap:7px}.device-sound-row label>span{font-size:12px;font-weight:800;color:#334155}.mini-status.success{background:#ecfdf5;color:#047857;padding:9px 12px}.device-alert-card .heading-actions{align-items:center}
+@media(max-width:600px){.device-sound-row{grid-template-columns:1fr}.device-sound-row .secondary-button{width:100%}}
 html{background:var(--app-bg)}
 body{background:linear-gradient(180deg,#f8fbff 0,#f5f7fb 34%,#f7f8fb 100%);color:var(--ink)}
 .app-shell{background:transparent}
