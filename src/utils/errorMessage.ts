@@ -33,5 +33,7 @@ export function errorMessage(error: unknown, fallback = 'Não foi possível conc
   const mappedKey = Object.keys(authMap).find((key) => raw.includes(key))
   if (mappedKey) return authMap[mappedKey]
 
+  if(/\b(?:502|503|504)\b|gateway|timeout|timed out|fetch failed/i.test(raw))return 'O servidor está temporariamente lento. Aguarde alguns segundos e tente entrar novamente.'
+
   return raw
 }

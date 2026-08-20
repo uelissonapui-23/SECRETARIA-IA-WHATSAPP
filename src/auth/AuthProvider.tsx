@@ -17,6 +17,11 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+function transientAuthFailure(error:unknown){
+  const value=error as {status?:number;message?:string}|null
+  return Boolean(value&&([502,503,504].includes(Number(value.status))||/\b(?:502|503|504)\b|gateway|timeout|timed out|fetch failed/i.test(String(value.message??''))))
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -43,7 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    const credentials={ email: email.trim(), password }
+    let { error } = await supabase.auth.signInWithPassword(credentials)
+    if(error&&transientAuthFailure(error)){
+      await new Promise(resolve=>window.setTimeout(resolve,1200))
+      ;({error}=await supabase.auth.signInWithPassword(credentials))
+    }
     if (error) throw error
   }, [])
 
